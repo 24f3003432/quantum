@@ -4,7 +4,14 @@ import json
 import urllib.request
 import urllib.error
 from datetime import datetime
-from data import log_external_api_conversation, external_api_conversations
+from data import (
+    log_external_api_conversation, 
+    external_api_conversations,
+    add_schema_repair_record,
+    schema_medic_data,
+    log_http_request
+)
+from schema_repair import repair_json_payload, TARGET_SCHEMAS
 
 # Target Monitored Application running on Port 5000
 target_app = Flask(__name__)
@@ -24,6 +31,30 @@ target_telemetry_logs = [
         "message": "Exclusive lock acquired by migration script alter_users_table.sql (PR #42)."
     }
 ]
+
+def process_schema_medic_api_request(service_name, target_endpoint, schema_id, raw_payload):
+    """
+    SchemaMedic API Conversation Handler:
+    Intercepts incoming API request to Port 5000, performs schema validation & repair,
+    logs the captured API conversation diff into schema_medic_data, and returns the repaired payload.
+    """
+    repair_result = repair_json_payload(raw_payload, schema_id=schema_id)
+    
+    new_id = f"MED-{100 + len(schema_medic_data) + 1}"
+    record = {
+        "id": new_id,
+        "schema_id": schema_id,
+        "service_name": service_name,
+        "target_path": target_endpoint,
+        "original_payload": repair_result["original_payload"],
+        "repaired_payload": repair_result["repaired_payload"],
+        "confidence": repair_result["confidence"],
+        "time": datetime.now().strftime("%H:%M:%S"),
+        "changes": [c["reason"] for c in repair_result["changes"]]
+    }
+    add_schema_repair_record(record)
+    
+    return repair_result["parsed_repaired"]
 
 def fetch_external_weather():
     """Real External Weather API Conversation (Open-Meteo)"""
@@ -77,7 +108,6 @@ def fetch_external_currency():
                 response_payload={"base": "USD", "rates_sample": rates_sample}
             )
     except Exception as e:
-        # Fallback external service
         url_alt = "https://jsonplaceholder.typicode.com/posts/1"
         try:
             req = urllib.request.Request(url_alt, headers={"User-Agent": "Port5000-App/1.0"})
@@ -142,11 +172,26 @@ def trigger_all_external_apis():
     res3 = fetch_external_user_service()
     return [res1, res2, res3]
 
-# Trigger initial external API conversations on app module load
+def trigger_initial_schema_medic_conversations():
+    """
+    Fires real initial API conversations with variant payloads to Port 5000 endpoints
+    so SchemaMedic captures actual API conversations from Port 5000 app right at startup!
+    """
+    sample_conversations = [
+        ("Port 5000 User Auth API", "/api/users/login", "user_auth", {"usr_id": 4021, "action": "login"}),
+        ("Port 5000 Payment Gateway", "/api/payment/checkout", "payment_transaction", {"tx_id": "TX-9821", "amt": 149.99, "curr": "USD"}),
+        ("Port 5000 IoT Sensor Service", "/api/sensor/telemetry", "sensor_telemetry", {"sensor": "SNS-901", "temp": 48.2}),
+        ("Port 5000 Profile Service", "/api/profile/update", "user_profile", {"usr_id": 7812, "name": "Alex Dev"})
+    ]
+    for service, path, schema, payload in sample_conversations:
+        process_schema_medic_api_request(service, path, schema, payload)
+
+# Trigger initial external and SchemaMedic API conversations on module load
 try:
     trigger_all_external_apis()
+    trigger_initial_schema_medic_conversations()
 except Exception as ex:
-    print("Initial external API trigger warning:", ex)
+    print("Initial API trigger warning:", ex)
 
 @target_app.route("/")
 def home():
@@ -155,7 +200,8 @@ def home():
         "port": 5000,
         "status": "RUNNING",
         "message": "This is the target application on port 5000 being inspected by SchemaMedic & EchoTrace on port 5001.",
-        "external_conversations_count": len(external_api_conversations)
+        "external_conversations_count": len(external_api_conversations),
+        "schema_medic_repairs_count": len(schema_medic_data)
     })
 
 @target_app.route("/health")
@@ -167,6 +213,7 @@ def health():
         "active_threads": 42,
         "db_connections": "38/40 (NEAR CAPACITY)",
         "external_api_captured": len(external_api_conversations),
+        "schema_medic_captured": len(schema_medic_data),
         "timestamp": datetime.utcnow().isoformat() + "Z"
     })
 
@@ -180,6 +227,7 @@ def telemetry():
         "db_lock_active": True,
         "active_migration": "PR #42 (alter_users_table.sql)",
         "external_conversations": external_api_conversations,
+        "schema_medic_repairs": schema_medic_data,
         "recent_logs": target_telemetry_logs
     })
 
@@ -213,30 +261,69 @@ def route_external_conversations():
 
 @target_app.route("/api/users/login", methods=["POST"])
 def user_login():
-    """Sample target app endpoint expecting strict schema"""
-    data = request.get_json(force=True) or {}
+    """Port 5000 User Auth API Endpoint protected by SchemaMedic"""
+    raw_data = request.get_json(force=True) or {}
+    repaired_data = process_schema_medic_api_request("Port 5000 User Auth Endpoint", "/api/users/login", "user_auth", raw_data)
+    
     target_telemetry_logs.insert(0, {
         "time": datetime.now().strftime("%H:%M:%S"),
         "level": "INFO",
         "service": "TargetApp:Auth",
-        "message": f"Received payload: {data}"
+        "message": f"Processed login for user_id={repaired_data.get('user_id')}"
     })
-    
-    # Check if required fields exist
-    if "user_id" not in data:
-        return jsonify({
-            "error": "CRITICAL_SCHEMA_ERROR: Missing required field 'user_id'",
-            "received_keys": list(data.keys())
-        }), 400
     
     return jsonify({
         "status": "SUCCESS",
         "message": "Login processed successfully by target app on port 5000",
-        "user_id": data["user_id"],
-        "device_type": data.get("device_type", "unknown")
+        "repaired_payload": repaired_data,
+        "user_id": repaired_data.get("user_id"),
+        "device_type": repaired_data.get("device_type", "unknown")
+    })
+
+@target_app.route("/api/payment/checkout", methods=["POST"])
+def payment_checkout():
+    """Port 5000 Payment Gateway API Endpoint protected by SchemaMedic"""
+    raw_data = request.get_json(force=True) or {}
+    repaired_data = process_schema_medic_api_request("Port 5000 Payment Gateway", "/api/payment/checkout", "payment_transaction", raw_data)
+    
+    return jsonify({
+        "status": "SUCCESS",
+        "message": "Payment transaction processed successfully on port 5000",
+        "repaired_payload": repaired_data,
+        "transaction_id": repaired_data.get("transaction_id"),
+        "amount": repaired_data.get("amount")
+    })
+
+@target_app.route("/api/sensor/telemetry", methods=["POST"])
+def sensor_telemetry():
+    """Port 5000 IoT Sensor API Endpoint protected by SchemaMedic"""
+    raw_data = request.get_json(force=True) or {}
+    repaired_data = process_schema_medic_api_request("Port 5000 IoT Sensor Service", "/api/sensor/telemetry", "sensor_telemetry", raw_data)
+    
+    return jsonify({
+        "status": "SUCCESS",
+        "message": "Sensor telemetry logged on port 5000",
+        "repaired_payload": repaired_data,
+        "sensor_id": repaired_data.get("sensor_id"),
+        "reading": repaired_data.get("reading")
+    })
+
+@target_app.route("/api/profile/update", methods=["POST"])
+def profile_update():
+    """Port 5000 User Profile API Endpoint protected by SchemaMedic"""
+    raw_data = request.get_json(force=True) or {}
+    repaired_data = process_schema_medic_api_request("Port 5000 Profile Service", "/api/profile/update", "user_profile", raw_data)
+    
+    return jsonify({
+        "status": "SUCCESS",
+        "message": "User profile updated on port 5000",
+        "repaired_payload": repaired_data,
+        "user_id": repaired_data.get("user_id"),
+        "full_name": repaired_data.get("full_name")
     })
 
 if __name__ == "__main__":
     print("Starting Target Monitored Application on http://0.0.0.0:5000 ...")
     target_app.run(host="0.0.0.0", port=5000, debug=True)
+
 

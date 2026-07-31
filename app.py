@@ -359,27 +359,45 @@ def api_trigger_external_apis():
 
 @app.route("/api/proxy/repair-sample", methods=["POST"])
 def api_proxy_repair_sample():
+    """Fires a real HTTP API request with legacy/variant keys to Port 5000 app, capturing live SchemaMedic repair"""
     samples = [
-        ("user_auth", "Port 5000 Auth API", {"usr_id": random.randint(1000, 9999), "action": "login"}),
-        ("payment_transaction", "Port 5000 Payment Gateway", {"tx_id": f"TX-{random.randint(1000,9999)}", "amt": round(random.uniform(10, 500), 2), "curr": "USD"}),
-        ("sensor_telemetry", "Port 5000 IoT Sensor API", {"sensor": f"SNS-{random.randint(100,999)}", "temp": round(random.uniform(20, 80), 1)}),
-        ("user_profile", "Port 5000 User Profile Service", {"usr_id": random.randint(5000, 8000), "name": "Dynamic User"})
+        ("/api/users/login", "user_auth", {"usr_id": random.randint(1000, 9999), "action": "login"}),
+        ("/api/payment/checkout", "payment_transaction", {"tx_id": f"TX-{random.randint(1000,9999)}", "amt": round(random.uniform(10, 500), 2), "curr": "USD"}),
+        ("/api/sensor/telemetry", "sensor_telemetry", {"sensor": f"SNS-{random.randint(100,999)}", "temp": round(random.uniform(20, 80), 1)}),
+        ("/api/profile/update", "user_profile", {"usr_id": random.randint(5000, 8000), "name": "Dynamic User"})
     ]
-    schema_id, service_name, sample_payload = random.choice(samples)
-    repair_res = repair_json_payload(sample_payload, schema_id=schema_id)
+    endpoint, schema_id, payload = random.choice(samples)
     
-    new_rec = {
-        "id": f"MED-{100 + len(schema_medic_data) + 1}",
-        "schema_id": schema_id,
-        "service_name": service_name,
-        "original_payload": repair_res["original_payload"],
-        "repaired_payload": repair_res["repaired_payload"],
-        "confidence": repair_res["confidence"],
-        "time": time.strftime("%H:%M:%S"),
-        "changes": [c["reason"] for c in repair_res["changes"]]
-    }
-    add_schema_repair_record(new_rec)
-    return jsonify({"success": True, "record": new_rec})
+    # Send actual HTTP POST request to Port 5000
+    try:
+        url = f"{TARGET_APP_URL}{endpoint}"
+        req_data = json.dumps(payload).encode('utf-8')
+        req = urllib.request.Request(
+            url,
+            data=req_data,
+            headers={"Content-Type": "application/json", "User-Agent": "SchemaMedic-Platform/1.0"},
+            method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=3.0) as resp:
+            resp_body = json.loads(resp.read().decode('utf-8'))
+            latest_record = schema_medic_data[0] if schema_medic_data else {}
+            return jsonify({"success": True, "http_status": resp.status, "port5000_response": resp_body, "record": latest_record})
+    except Exception as e:
+        # Fallback to direct call if Port 5000 app HTTP is initializing
+        repair_res = repair_json_payload(payload, schema_id=schema_id)
+        new_rec = {
+            "id": f"MED-{100 + len(schema_medic_data) + 1}",
+            "schema_id": schema_id,
+            "service_name": f"Port 5000 ({endpoint})",
+            "original_payload": repair_res["original_payload"],
+            "repaired_payload": repair_res["repaired_payload"],
+            "confidence": repair_res["confidence"],
+            "time": time.strftime("%H:%M:%S"),
+            "changes": [c["reason"] for c in repair_res["changes"]]
+        }
+        add_schema_repair_record(new_rec)
+        return jsonify({"success": True, "record": new_rec, "fallback": str(e)})
+
 
 @app.route("/api/proxy/repair", methods=["POST"])
 def api_proxy_repair():
