@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Incident Timeline | EchoTrace Analysis</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fira+Code:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="navbar">
+        <div class="nav-brand">
+            <span class="brand-icon">⚡</span> SchemaMedic & EchoTrace
+        </div>
+        <nav class="nav-links">
+            <a href="{{ url_for('index') }}" class="nav-item">Dashboard</a>
+            <a href="{{ url_for('api_inspector') }}" class="nav-item">SchemaMedic Inspector</a>
+            <a href="{{ url_for('timeline') }}" class="nav-item active">Incident Timeline</a>
+            <a href="{{ url_for('root_cause_view') }}" class="nav-item">AI Root Cause Hub</a>
+            <a href="{{ url_for('proxy_sandbox') }}" class="nav-item">Live Proxy Sandbox</a>
+        </nav>
+        <div class="status-pill">
+            <span class="status-dot"></span>
+            <span>Proxy Active : 5000</span>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="page-header">
+            <h1>EchoTrace Incident Timeline & Telemetry Context</h1>
+            <p class="subtitle">Sequential stream of system telemetry, database events, Git deployments, and SchemaMedic interceptions.</p>
+        </div>
+
+        <!-- Filter Toolbar -->
+        <div class="timeline-toolbar">
+            <a href="{{ url_for('timeline', filter='all') }}" class="filter-btn {% if current_filter == 'all' %}active{% endif %}">All Events</a>
+            <a href="{{ url_for('timeline', filter='critical') }}" class="filter-btn {% if current_filter == 'critical' %}active{% endif %}">🚨 Critical Only</a>
+            <a href="{{ url_for('timeline', filter='schema') }}" class="filter-btn {% if current_filter == 'schema' %}active{% endif %}">🩺 Schema Medic</a>
+            <a href="{{ url_for('timeline', filter='git') }}" class="filter-btn {% if current_filter == 'git' %}active{% endif %}">🐙 Git & Commits</a>
+        </div>
+
+        <div class="timeline-layout">
+            <!-- Left Column: Vertical Timeline -->
+            <div class="timeline-column">
+                <div class="timeline">
+                    {% for event in echo_trace_events %}
+                    <div class="timeline-item">
+                        <div class="timeline-node node-{{ event.severity }}"></div>
+                        <div class="timeline-card">
+                            <div class="timeline-card-header">
+                                <div>
+                                    <span class="timeline-time">{{ event.time }}</span>
+                                    <span class="event-source">{{ event.source }}</span>
+                                </div>
+                                <span class="badge badge-{{ event.severity }}">{{ event.severity|upper }}</span>
+                            </div>
+                            <h3 class="event-title">{{ event.event_type }}</h3>
+                            <p class="event-desc">{{ event.description }}</p>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Right Column: Sticky AI Root Cause Analysis Panel -->
+            <div class="sidebar-column">
+                <div class="ai-panel {% if rollback_executed %}resolved-panel{% endif %}" id="aiPanel">
+                    <div class="ai-panel-header">
+                        <span class="ai-icon">🤖</span>
+                        <h2>EchoTrace AI Root Cause</h2>
+                    </div>
+                    
+                    <div class="ai-panel-body">
+                        {% if rollback_executed %}
+                        <div class="insight-box success-box">
+                            <span class="insight-label">System Operational (Rollback Complete)</span>
+                            <p class="insight-text">
+                                <strong>PR #42 has been successfully rolled back.</strong> DB table lock released; Auth worker thread pool restored.
+                            </p>
+                        </div>
+                        {% else %}
+                        <div class="insight-box danger-box">
+                            <span class="insight-label">Primary Root Cause Identified (94% Conf.)</span>
+                            <p class="insight-text">
+                                <strong>PR #42 (Commit a3f891b)</strong> executed an exclusive table lock on primary DB node, causing thread pool exhaustion in AuthService.
+                            </p>
+                        </div>
+                        {% endif %}
+
+                        <div class="telemetry-summary">
+                            <div class="summary-item">
+                                <span class="label">Primary Cause:</span>
+                                <span class="val">PR #42 (DB Migration Lock)</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="label">First Anomaly:</span>
+                                <span class="val">14:00:05 (Buffer Warning)</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="label">Fatal Error:</span>
+                                <span class="val">14:00:12 (Null Pointer)</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="label">Schema Medic:</span>
+                                <span class="val" style="color: #34d399;">3 Failures Prevented</span>
+                            </div>
+                        </div>
+
+                        <div class="remediation-section">
+                            <h3>Recommended Remediation</h3>
+                            <p>
+                                {% if rollback_executed %}
+                                Automated rollback executed. System restored.
+                                {% else %}
+                                Execute an automated rollback of PR #42 to release database locks and restore thread pool capacity.
+                                {% endif %}
+                            </p>
+                            
+                            <button id="rollbackBtn" class="btn-rollback" onclick="triggerRollback()" {% if rollback_executed %}disabled{% endif %}>
+                                {% if rollback_executed %}
+                                ✅ Rollback Executed
+                                {% else %}
+                                ⚡ Execute Automated Rollback
+                                {% endif %}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Chat Floating Widget Button -->
+    <button class="chat-widget-btn" onclick="toggleChatWindow()" title="Ask EchoTrace AI Assistant">💬</button>
+    <div class="chat-window" id="chatWindow">
+        <div class="chat-header">
+            <h3>🤖 EchoTrace & SchemaMedic AI Assistant</h3>
+            <button class="close-chat" onclick="toggleChatWindow()">✕</button>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+            <div class="chat-msg msg-assistant">
+                I am tracking the incident timeline. Ask me about root causes, severity spikes, or rollback steps!
+            </div>
+        </div>
+        <div class="chat-input-area">
+            <input type="text" id="chatInput" class="chat-input" placeholder="Ask about timeline events..." onkeypress="handleChatKeyPress(event)">
+            <button class="chat-send-btn" onclick="sendChatMessage()">Send</button>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

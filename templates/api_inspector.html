@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SchemaMedic Inspector | API Payload Repair Diff</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fira+Code:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="navbar">
+        <div class="nav-brand">
+            <span class="brand-icon">⚡</span> SchemaMedic & EchoTrace <span style="font-size: 0.75rem; color: var(--accent-purple); border: 1px solid var(--card-border); padding: 0.15rem 0.5rem; border-radius: 12px; margin-left: 0.4rem;">Port 5001</span>
+        </div>
+        <nav class="nav-links">
+            <a href="{{ url_for('index') }}" class="nav-item">Dashboard</a>
+            <a href="{{ url_for('api_inspector') }}" class="nav-item active">SchemaMedic Inspector</a>
+            <a href="{{ url_for('timeline') }}" class="nav-item">Incident Timeline</a>
+            <a href="{{ url_for('root_cause_view') }}" class="nav-item">AI Root Cause Hub</a>
+            <a href="{{ url_for('proxy_sandbox') }}" class="nav-item">Live Proxy Sandbox</a>
+        </nav>
+        <div class="status-pill" id="statusPillContainer" style="background: rgba(16, 185, 129, 0.15); border-color: rgba(16, 185, 129, 0.3); color: #34d399;">
+            <span class="status-dot"></span>
+            <span id="statusPillText">Target App (Port 5000): 🟢 ONLINE</span>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-end;">
+            <div>
+                <h1>SchemaMedic — API Payload Inspector & Diff Viewer</h1>
+                <p class="subtitle">Automated payload repair, key remapping, and missing field inference log feed (Updating Dynamically).</p>
+            </div>
+            <div style="display: flex; gap: 0.75rem;">
+                <button onclick="triggerDemoRepair()" class="btn-primary" style="background: linear-gradient(135deg, #0284c7, #2563eb);">⚡ Inject Live Payload Repair</button>
+                <a href="{{ url_for('proxy_sandbox') }}" class="btn-primary">⚡ Open Live Proxy Sandbox</a>
+            </div>
+        </div>
+
+        <div class="inspector-feed" id="inspectorFeedContainer">
+            {% for item in schema_medic_data %}
+            <div class="inspector-card">
+                <div class="card-top-bar">
+                    <div class="item-meta">
+                        <span class="item-id-badge">{{ item.id }}</span>
+                        <span class="service-tag">Target API: <strong>{{ item.service_name }}</strong></span>
+                    </div>
+                    <div class="confidence-container">
+                        <span class="confidence-label">AI Repair Confidence</span>
+                        <span class="confidence-score">{{ item.confidence }}%</span>
+                    </div>
+                </div>
+
+                <div class="diff-grid">
+                    <div class="diff-panel original-panel">
+                        <div class="panel-header header-red">
+                            <span class="panel-icon">❌</span>
+                            <span class="panel-title">Original Payload (Missing / Variant Keys)</span>
+                        </div>
+                        <div class="code-wrapper wrapper-red">
+                            <pre><code class="language-json">{{ item.original_payload | pretty_json }}</code></pre>
+                        </div>
+                    </div>
+
+                    <div class="diff-panel repaired-panel">
+                        <div class="panel-header header-green">
+                            <span class="panel-icon">✅</span>
+                            <span class="panel-title">SchemaMedic Repaired Payload (Valid JSON Forwarded)</span>
+                        </div>
+                        <div class="code-wrapper wrapper-green">
+                            <pre><code class="language-json">{{ item.repaired_payload | pretty_json }}</code></pre>
+                        </div>
+                    </div>
+                </div>
+
+                {% if item.changes %}
+                <div class="changes-box">
+                    <h4>Applied Key Mappings & Field Inferences</h4>
+                    <ul class="changes-ul">
+                        {% for chg in item.changes %}
+                        <li>{{ chg }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- AI Chat Floating Widget Button -->
+    <button class="chat-widget-btn" onclick="toggleChatWindow()" title="Ask EchoTrace AI Assistant">💬</button>
+    <div class="chat-window" id="chatWindow">
+        <div class="chat-header">
+            <h3>🤖 EchoTrace & SchemaMedic AI Assistant</h3>
+            <button class="close-chat" onclick="toggleChatWindow()">✕</button>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+            <div class="chat-msg msg-assistant">
+                Ask me about how SchemaMedic performs payload repair and confidence scoring!
+            </div>
+        </div>
+        <div class="chat-input-area">
+            <input type="text" id="chatInput" class="chat-input" placeholder="Ask about schema repairs..." onkeypress="handleChatKeyPress(event)">
+            <button class="chat-send-btn" onclick="sendChatMessage()">Send</button>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script>
+        async function triggerDemoRepair() {
+            try {
+                const resp = await fetch("/api/proxy/repair-sample", { method: "POST" });
+                const res = await resp.json();
+                if (res.success) {
+                    showToast("⚡ New SchemaMedic Payload Intercepted & Repaired Live!");
+                    fetchFullDynamicState();
+                }
+            } catch (e) {
+                console.warn(e);
+            }
+        }
+    </script>
+</body>
+</html>

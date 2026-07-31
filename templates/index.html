@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SchemaMedic & EchoTrace (Port 5001) | 100% Dynamic Telemetry Platform</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fira+Code:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Top Navigation Bar -->
+    <header class="navbar">
+        <div class="nav-brand">
+            <span class="brand-icon">⚡</span> SchemaMedic & EchoTrace <span style="font-size: 0.75rem; color: var(--accent-purple); border: 1px solid var(--card-border); padding: 0.15rem 0.5rem; border-radius: 12px; margin-left: 0.4rem;">Port 5001</span>
+        </div>
+        <nav class="nav-links">
+            <a href="{{ url_for('index') }}" class="nav-item active">Dashboard</a>
+            <a href="{{ url_for('api_inspector') }}" class="nav-item">SchemaMedic Inspector</a>
+            <a href="{{ url_for('timeline') }}" class="nav-item">Incident Timeline</a>
+            <a href="{{ url_for('root_cause_view') }}" class="nav-item">AI Root Cause Hub</a>
+            <a href="{{ url_for('proxy_sandbox') }}" class="nav-item">Live Proxy Sandbox</a>
+        </nav>
+        <div class="status-pill" id="statusPillContainer" style="background: rgba(245, 158, 11, 0.15); border-color: rgba(245, 158, 11, 0.3); color: #fbbf24;">
+            <span class="status-dot"></span>
+            <span id="statusPillText">Target App (Port 5000): 🔴 WAITING...</span>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Story Hero Banner -->
+        <section class="story-hero">
+            <div class="hero-tag">
+                <span>🛡️ 100% Dynamic Telemetry & Inspection Platform</span>
+            </div>
+            <h1 class="hero-title">Prevent Failures with SchemaMedic & Autonomously Diagnose with EchoTrace</h1>
+            
+            <!-- End-to-End System Pipeline Diagram -->
+            <div class="pipeline-flow">
+                <div class="pipeline-step">
+                    <span class="step-icon">🌐</span>
+                    <div class="step-title">Internet</div>
+                    <div class="step-sub">3rd Party Requests</div>
+                </div>
+                <div class="pipeline-arrow">&rarr;</div>
+                <div class="pipeline-step step-highlight-schemamedic">
+                    <span class="step-icon">🩺</span>
+                    <div class="step-title">SchemaMedic</div>
+                    <div class="step-sub">Proxy on Port 5001</div>
+                </div>
+                <div class="pipeline-arrow">&rarr;</div>
+                <div class="pipeline-step">
+                    <span class="step-icon">✨</span>
+                    <div class="step-title">Repaired JSON</div>
+                    <div class="step-sub">Clean Data Forwarded</div>
+                </div>
+                <div class="pipeline-arrow">&rarr;</div>
+                <div class="pipeline-step" style="border: 1px solid var(--accent-blue); background: rgba(56, 189, 248, 0.08);">
+                    <span class="step-icon">🖥️</span>
+                    <div class="step-title">Target App</div>
+                    <div class="step-sub">Running on Port 5000</div>
+                </div>
+                <div class="pipeline-arrow">&rarr;</div>
+                <div class="pipeline-step">
+                    <span class="step-icon">📊</span>
+                    <div class="step-title">Telemetry Stream</div>
+                    <div class="step-sub">Metrics & Diagnostics</div>
+                </div>
+                <div class="pipeline-arrow">&rarr;</div>
+                <div class="pipeline-step step-highlight-echotrace">
+                    <span class="step-icon">⚡</span>
+                    <div class="step-title">EchoTrace</div>
+                    <div class="step-sub">AI Root Cause (5001)</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Dynamic Target Application Inspector Banner -->
+        <section class="card" style="border: 1px solid rgba(56, 189, 248, 0.3); background: linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.9));">
+            <div class="card-header-flex">
+                <h2>🔍 Dynamic Target Application Inspector (Port 5000 Data)</h2>
+                <div style="font-size: 0.8rem; color: #34d399; font-weight: 600;">⚡ Dynamic Reactive Loop Active (2s)</div>
+            </div>
+            <div id="liveTargetStatusBody">
+                <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid var(--red-border); border-radius: 8px; padding: 1.25rem; text-align: center;">
+                    <div style="font-size: 1.5rem; margin-bottom: 0.3rem;">🔴</div>
+                    <div style="font-size: 1.05rem; font-weight: 800; color: #fca5a5;">Waiting for Port 5000 Application</div>
+                    <p style="margin: 0.4rem 0 0 0; font-size: 0.88rem; color: var(--text-muted);">
+                        No active listener found on <code>http://127.0.0.1:5000</code>. Start your app on port 5000 and data will stream here dynamically in real-time.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Metric Summary Cards -->
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-icon-box icon-emerald">🛡️</div>
+                <div>
+                    <div class="metric-val" id="metricFailuresPrevented">{{ metrics.failures_prevented if metrics else 15 }}</div>
+                    <div class="metric-label">Port 5000 Failures Prevented</div>
+                </div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-icon-box icon-cyan">🔄</div>
+                <div>
+                    <div class="metric-val" id="metricIntercepted">{{ metrics.total_intercepted if metrics else 17 }}</div>
+                    <div class="metric-label">API Requests Intercepted (5001)</div>
+                </div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-icon-box icon-purple">🎯</div>
+                <div>
+                    <div class="metric-val" id="metricConfidence">{{ metrics.avg_confidence if metrics else "95%" }}</div>
+                    <div class="metric-label">AI Repair Confidence Avg</div>
+                </div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-icon-box icon-rose" id="metricStateIcon">
+                    {% if rollback_executed %}✅{% else %}🚨{% endif %}
+                </div>
+                <div>
+                    <div class="metric-val" id="metricState">
+                        {% if rollback_executed %}RESOLVED{% else %}ACTIVE INCIDENT{% endif %}
+                    </div>
+                    <div class="metric-label">Port 5000 Dynamic State</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 1: Schema Medic Live Overview -->
+        <section class="card">
+            <div class="card-header-flex">
+                <h2>🩺 SchemaMedic — Dynamic Payload Interceptions Feed</h2>
+                <a href="{{ url_for('api_inspector') }}" class="btn-link">Open Visual Diff Inspector &rarr;</a>
+            </div>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Target Service</th>
+                        <th>Original (Missing Key) Payload</th>
+                        <th>Repaired Payload</th>
+                        <th>AI Confidence</th>
+                    </tr>
+                </thead>
+                <tbody id="schemaMedicTableBody">
+                    {% for item in schema_medic_data[:5] %}
+                    <tr>
+                        <td><span class="item-id-badge">{{ item.id }}</span></td>
+                        <td><strong>{{ item.service_name }}</strong></td>
+                        <td><code style="color: var(--red-text);">{{ item.original_payload }}</code></td>
+                        <td><code style="color: var(--green-text);">{{ item.repaired_payload }}</code></td>
+                        <td><span class="confidence-badge">{{ item.confidence }}%</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Section 2: EchoTrace Incident Timeline Summary -->
+        <section class="card">
+            <div class="card-header-flex">
+                <h2>⚡ EchoTrace — Dynamic Telemetry Events Feed</h2>
+                <a href="{{ url_for('timeline') }}" class="btn-link">Open Full Incident Timeline &rarr;</a>
+            </div>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Event Source</th>
+                        <th>Event Type</th>
+                        <th>Severity</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody id="echoTraceTableBody">
+                    {% for event in echo_trace_events[:6] %}
+                    <tr>
+                        <td><code>{{ event.time }}</code></td>
+                        <td><span style="color: var(--text-muted);">{{ event.source }}</span></td>
+                        <td><strong>{{ event.event_type }}</strong></td>
+                        <td><span class="badge badge-{{ event.severity }}">{{ event.severity|upper }}</span></td>
+                        <td>{{ event.description }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </section>
+    </div>
+
+    <!-- AI Chat Floating Widget Button -->
+    <button class="chat-widget-btn" onclick="toggleChatWindow()" title="Ask EchoTrace AI Assistant">💬</button>
+
+    <!-- AI Chat Modal Window -->
+    <div class="chat-window" id="chatWindow">
+        <div class="chat-header">
+            <h3>🤖 EchoTrace & SchemaMedic AI Assistant</h3>
+            <button class="close-chat" onclick="toggleChatWindow()">✕</button>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+            <div class="chat-msg msg-assistant">
+                Hello! I am your AI Assistant running on Port 5001, dynamically inspecting the application running on Port 5000. Ask me about telemetry, schema repairs, or root cause diagnostics!
+            </div>
+        </div>
+        <div class="chat-input-area">
+            <input type="text" id="chatInput" class="chat-input" placeholder="Ask about Port 5000 app or repairs..." onkeypress="handleChatKeyPress(event)">
+            <button class="chat-send-btn" onclick="sendChatMessage()">Send</button>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

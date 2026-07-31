@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Root Cause Engine | EchoTrace Intelligence</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fira+Code:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="navbar">
+        <div class="nav-brand">
+            <span class="brand-icon">⚡</span> SchemaMedic & EchoTrace
+        </div>
+        <nav class="nav-links">
+            <a href="{{ url_for('index') }}" class="nav-item">Dashboard</a>
+            <a href="{{ url_for('api_inspector') }}" class="nav-item">SchemaMedic Inspector</a>
+            <a href="{{ url_for('timeline') }}" class="nav-item">Incident Timeline</a>
+            <a href="{{ url_for('root_cause_view') }}" class="nav-item active">AI Root Cause Hub</a>
+            <a href="{{ url_for('proxy_sandbox') }}" class="nav-item">Live Proxy Sandbox</a>
+        </nav>
+        <div class="status-pill">
+            <span class="status-dot"></span>
+            <span>Proxy Active : 5000</span>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="page-header">
+            <h1>EchoTrace AI Root Cause & Remediation Engine</h1>
+            <p class="subtitle">Autonomous cause probability ranking, Git deployment correlation, and recommended resolution workflow.</p>
+        </div>
+
+        <!-- Headline Summary Banner -->
+        <div class="card" style="border-left: 4px solid {% if rollback_executed %}#10b981{% else %}#ef4444{% endif %};">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <span class="badge {% if rollback_executed %}badge-schema{% else %}badge-critical{% endif %}" style="font-size: 0.85rem;">
+                        {% if rollback_executed %}SYSTEM RESTORED{% else %}ACTIVE DIAGNOSTIC REPORT{% endif %}
+                    </span>
+                    <h2 style="margin: 0.5rem 0 0.2rem 0; font-size: 1.4rem; color: #ffffff;">
+                        {{ analysis.headline }}
+                    </h2>
+                    <p style="margin: 0; color: var(--text-muted); font-size: 0.95rem;">
+                        Confidence Score: <strong style="color: #34d399;">{{ analysis.confidence }}%</strong> | Evaluated from 8 telemetry streams & Git commits.
+                    </p>
+                </div>
+                <div>
+                    <button class="btn-rollback" onclick="triggerRollback()" {% if rollback_executed %}disabled{% endif %}>
+                        {% if rollback_executed %}✅ Rollback Complete{% else %}⚡ Execute Automated Rollback{% endif %}
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ranked Likely Causes -->
+        <section class="card">
+            <h2>🎯 Ranked Candidate Root Causes</h2>
+            <div style="margin-top: 1rem;">
+                {% for cause in analysis.ranked_causes %}
+                <div class="cause-card">
+                    <div class="cause-rank-badge">#{{ cause.rank }}</div>
+                    <div class="cause-info">
+                        <div class="cause-title-bar">
+                            <h3>{{ cause.title }}</h3>
+                            <div class="cause-prob">{{ cause.probability }}% Likelihood</div>
+                        </div>
+                        <p style="margin: 0 0 0.5rem 0; color: #cbd5e1; font-size: 0.92rem;">
+                            {{ cause.details }}
+                        </p>
+                        <div>
+                            <span class="badge badge-info">{{ cause.status_badge }}</span>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <!-- Git Commit & Deployment History Correlation -->
+        <section class="card">
+            <h2>🐙 Git Commit & Deployment Correlation</h2>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Commit Hash</th>
+                        <th>Author</th>
+                        <th>Deployment Time</th>
+                        <th>Commit Message</th>
+                        <th>AI Risk Assessment</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for commit in git_commits %}
+                    <tr {% if commit.is_culprit %}style="background: rgba(239, 68, 68, 0.08);"{% endif %}>
+                        <td><code>{{ commit.hash }}</code></td>
+                        <td>{{ commit.author }}</td>
+                        <td><code>{{ commit.time }}</code></td>
+                        <td><strong>{{ commit.message }}</strong></td>
+                        <td>
+                            {% if commit.is_culprit %}
+                            <span class="badge badge-critical">PRIMARY CULPRIT (PR #42)</span>
+                            {% else %}
+                            <span class="badge badge-info">LOW RISK</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </section>
+    </div>
+
+    <!-- AI Chat Floating Widget Button -->
+    <button class="chat-widget-btn" onclick="toggleChatWindow()" title="Ask EchoTrace AI Assistant">💬</button>
+    <div class="chat-window" id="chatWindow">
+        <div class="chat-header">
+            <h3>🤖 EchoTrace & SchemaMedic AI Assistant</h3>
+            <button class="close-chat" onclick="toggleChatWindow()">✕</button>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+            <div class="chat-msg msg-assistant">
+                Ask me for deep explanation on PR #42 database locking or remediation details!
+            </div>
+        </div>
+        <div class="chat-input-area">
+            <input type="text" id="chatInput" class="chat-input" placeholder="Ask root cause questions..." onkeypress="handleChatKeyPress(event)">
+            <button class="chat-send-btn" onclick="sendChatMessage()">Send</button>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
