@@ -11,7 +11,7 @@
 <body>
     <header class="navbar">
         <div class="nav-brand">
-            <span class="brand-icon">⚡</span> SchemaMedic & EchoTrace
+            <span class="brand-icon">⚡</span> SchemaMedic & EchoTrace <span style="font-size: 0.75rem; color: var(--accent-purple); border: 1px solid var(--card-border); padding: 0.15rem 0.5rem; border-radius: 12px; margin-left: 0.4rem;">Port 5001</span>
         </div>
         <nav class="nav-links">
             <a href="{{ url_for('index') }}" class="nav-item">Dashboard</a>
@@ -20,44 +20,58 @@
             <a href="{{ url_for('root_cause_view') }}" class="nav-item active">AI Root Cause Hub</a>
             <a href="{{ url_for('proxy_sandbox') }}" class="nav-item">Live Proxy Sandbox</a>
         </nav>
-        <div class="status-pill">
+        <div class="status-pill" id="statusPillContainer">
             <span class="status-dot"></span>
-            <span>Proxy Active : 5000</span>
+            <span id="statusPillText">Target App (Port 5000): 🟢 ONLINE</span>
         </div>
     </header>
 
     <div class="container">
         <div class="page-header">
-            <h1>EchoTrace AI Root Cause & Remediation Engine</h1>
-            <p class="subtitle">Autonomous cause probability ranking, Git deployment correlation, and recommended resolution workflow.</p>
+            <h1>EchoTrace AI Root Cause & Remediation Hub</h1>
+            <p class="subtitle">Dynamic Featherless.ai response health analysis and real-time incident diagnosis.</p>
         </div>
 
         <!-- Headline Summary Banner -->
-        <div class="card" style="border-left: 4px solid {% if rollback_executed %}#10b981{% else %}#ef4444{% endif %};">
+        <div class="card" style="border-left: 4px solid {% if analysis.status == 'NO_ISSUES' or rollback_executed %}#10b981{% else %}#ef4444{% endif %};">
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <div>
-                    <span class="badge {% if rollback_executed %}badge-schema{% else %}badge-critical{% endif %}" style="font-size: 0.85rem;">
-                        {% if rollback_executed %}SYSTEM RESTORED{% else %}ACTIVE DIAGNOSTIC REPORT{% endif %}
+                    <span class="badge {% if analysis.status == 'NO_ISSUES' or rollback_executed %}badge-schema{% else %}badge-critical{% endif %}" style="font-size: 0.85rem;">
+                        {% if analysis.status == 'NO_ISSUES' %}🟢 HEALTHY — NO ISSUES DETECTED{% elif rollback_executed %}SYSTEM RESTORED{% else %}ACTIVE ERROR INCIDENT REPORT{% endif %}
                     </span>
-                    <h2 style="margin: 0.5rem 0 0.2rem 0; font-size: 1.4rem; color: #ffffff;">
+                    <h2 style="margin: 0.5rem 0 0.2rem 0; font-size: 1.4rem; color: #ffffff;" id="aiHeadline">
                         {{ analysis.headline }}
                     </h2>
-                    <p style="margin: 0; color: var(--text-muted); font-size: 0.95rem;">
-                        Confidence Score: <strong style="color: #34d399;">{{ analysis.confidence }}%</strong> | Evaluated from 8 telemetry streams & Git commits.
+                    <p style="margin: 0.4rem 0 0 0; color: #cbd5e1; font-size: 0.95rem;" id="aiSummaryText">
+                        {{ analysis.summary }}
                     </p>
+                    <div style="margin-top: 0.5rem; font-size: 0.8rem; color: var(--text-muted);">
+                        ⚡ Dynamic AI Model: <code>{{ analysis.featherless_model }}</code> | Featherless.ai Live Response Analysis
+                    </div>
                 </div>
                 <div>
-                    <button class="btn-rollback" onclick="triggerRollback()" {% if rollback_executed %}disabled{% endif %}>
+                    {% if analysis.has_error or rollback_executed %}
+                    <button class="btn-rollback" id="rollbackBtn" onclick="triggerRollback()" {% if rollback_executed %}disabled{% endif %}>
                         {% if rollback_executed %}✅ Rollback Complete{% else %}⚡ Execute Automated Rollback{% endif %}
                     </button>
+                    {% endif %}
                 </div>
             </div>
         </div>
 
         <!-- Ranked Likely Causes -->
         <section class="card">
-            <h2>🎯 Ranked Candidate Root Causes</h2>
-            <div style="margin-top: 1rem;">
+            <h2>🎯 Dynamic Featherless AI Cause Analysis</h2>
+            <div style="margin-top: 1rem;" id="rankedCausesList">
+                {% if analysis.status == 'NO_ISSUES' %}
+                <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid var(--green-border); padding: 1.5rem; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 2rem; margin-bottom: 0.3rem;">🟢</div>
+                    <h3 style="color: #34d399; margin: 0 0 0.3rem 0; font-size: 1.2rem;">No issues till now</h3>
+                    <p style="margin: 0; color: var(--text-muted); font-size: 0.9rem;">
+                        All target application endpoints on Port 5000 and proxy traffic are returning healthy responses (200 OK). Featherless AI will automatically generate diagnostic reports if an error response occurs.
+                    </p>
+                </div>
+                {% else %}
                 {% for cause in analysis.ranked_causes %}
                 <div class="cause-card">
                     <div class="cause-rank-badge">#{{ cause.rank }}</div>
@@ -75,6 +89,7 @@
                     </div>
                 </div>
                 {% endfor %}
+                {% endif %}
             </div>
         </section>
 
@@ -91,15 +106,15 @@
                         <th>AI Risk Assessment</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="gitCommitsTableBody">
                     {% for commit in git_commits %}
-                    <tr {% if commit.is_culprit %}style="background: rgba(239, 68, 68, 0.08);"{% endif %}>
+                    <tr {% if commit.is_culprit and analysis.has_error %}style="background: rgba(239, 68, 68, 0.08);"{% endif %}>
                         <td><code>{{ commit.hash }}</code></td>
                         <td>{{ commit.author }}</td>
                         <td><code>{{ commit.time }}</code></td>
                         <td><strong>{{ commit.message }}</strong></td>
                         <td>
-                            {% if commit.is_culprit %}
+                            {% if commit.is_culprit and analysis.has_error %}
                             <span class="badge badge-critical">PRIMARY CULPRIT (PR #42)</span>
                             {% else %}
                             <span class="badge badge-info">LOW RISK</span>
@@ -121,7 +136,7 @@
         </div>
         <div class="chat-messages" id="chatMessages">
             <div class="chat-msg msg-assistant">
-                Ask me for deep explanation on PR #42 database locking or remediation details!
+                Ask me to explain any dynamic log errors or Featherless AI health assessments!
             </div>
         </div>
         <div class="chat-input-area">

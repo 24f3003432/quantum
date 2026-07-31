@@ -35,8 +35,8 @@ def query_featherless_ai(system_prompt, user_prompt):
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
-            max_tokens=450,
-            temperature=0.7
+            max_tokens=500,
+            temperature=0.6
         )
         if response and response.choices and len(response.choices) > 0:
             return response.choices[0].message.content.strip()
@@ -45,97 +45,168 @@ def query_featherless_ai(system_prompt, user_prompt):
 
     return None
 
-# AI Root Cause Candidates with probabilities, explanations, and remediation steps
-def get_root_cause_analysis(events, rollback_executed=False):
+def get_root_cause_analysis(events=None, rollback_executed=False, http_requests=None):
     """
-    EchoTrace AI Intelligence Engine:
-    - Scans unified incident context (Logs + Commits + Deploys + Metrics + Schema Interceptions)
-    - Ranks likely causes with probability scores
-    - Generates step-by-step diagnostic breakdown & rollback recommendation
+    Featherless AI Health & Root Cause Engine:
+    - Dynamically scans real HTTP response traffic and logs.
+    - If NO ERRORS exist (all HTTP statuses < 400 and no critical events):
+      Returns clean "No issues till now" state.
+    - If ERRORS exist (status_code >= 400 or critical event):
+      Calls Featherless.ai API to dynamically analyze the error responses and generate the Root Cause Report.
     """
     if rollback_executed:
         return {
+            "has_error": False,
             "status": "REMEDIATED",
             "active_alert": False,
-            "headline": "System Operating Normally — PR #42 Successfully Rolled Back",
+            "headline": "System Restored — PR #42 Successfully Rolled Back",
             "confidence": 99,
             "featherless_model": FEATHERLESS_MODEL,
+            "summary": "Database lock released after automated rollback of PR #42. Target application operating normally.",
             "primary_cause": {
                 "title": "PR #42 Database Schema Lock (Resolved)",
                 "probability": 94,
                 "author": "dev-team@company.com",
                 "commit": "a3f891b",
-                "summary": "Database lock released after automated rollback of PR #42. Thread pool and connection pool back to 100% capacity.",
+                "summary": "Database lock released after automated rollback of PR #42. Thread pool back to 100% capacity.",
                 "affected_services": ["AuthService", "DBCluster-01", "PaymentGateway"]
             },
             "ranked_causes": [
                 {
                     "rank": 1,
-                    "title": "PR #42 (Migration SQL Lock) — ROLLED BACK",
+                    "title": "PR #42 Migration SQL Lock — ROLLED BACK",
                     "probability": 94,
                     "severity": "CRITICAL (RESOLVED)",
-                    "details": "Exclusive table lock on 'users' table during migration blocked auth workers.",
+                    "details": "Exclusive table lock on 'users' table released.",
                     "status_badge": "RESOLVED"
-                },
-                {
-                    "rank": 2,
-                    "title": "3rd Party Auth0 API Schema Change — PATCHED BY SCHEMAMEDIC",
-                    "probability": 88,
-                    "severity": "WARNING (PREVENTED)",
-                    "details": "SchemaMedic intercepted missing 'device_type' and mapped 'usr_id' -> 'user_id', preventing downstream crash.",
-                    "status_badge": "PREVENTED"
                 }
             ],
             "recommended_action": "No further action needed. System health restored to 99.8%.",
             "rollback_available": False
         }
 
+    # 1. Scan for actual error responses in HTTP traffic stream & events
+    error_requests = []
+    if http_requests:
+        error_requests = [r for r in http_requests if r.get("status_code", 200) >= 400]
+
+    critical_events = []
+    if events:
+        critical_events = [e for e in events if e.get("severity") in ["critical", "warning"]]
+
+    # 2. IF NO ERRORS DETECTED -> Display clean "No issues till now"
+    if not error_requests and not critical_events:
+        return {
+            "has_error": False,
+            "status": "NO_ISSUES",
+            "active_alert": False,
+            "headline": "🟢 No Issues Till Now",
+            "confidence": 100,
+            "featherless_model": FEATHERLESS_MODEL,
+            "summary": "No issues till now. All target application endpoints on Port 5000 and proxy traffic are returning healthy responses (200 OK).",
+            "primary_cause": {
+                "title": "No Active Incidents Detected",
+                "probability": 0,
+                "summary": "No issues till now. Port 5000 application traffic and background telemetry are operating with zero error responses.",
+                "affected_services": ["Port 5000 Target Application"]
+            },
+            "ranked_causes": [
+                {
+                    "rank": 1,
+                    "title": "Healthy Response Traffic (200 OK)",
+                    "probability": 0,
+                    "severity": "INFO",
+                    "details": "No issues till now. All active endpoints are returning valid healthy responses.",
+                    "status_badge": "HEALTHY"
+                }
+            ],
+            "recommended_action": "Platform is actively monitoring live response traffic. No remediation required.",
+            "rollback_available": False
+        }
+
+    # 3. IF ERRORS DETECTED -> Send live error log responses to Featherless.ai for dynamic root-cause analysis!
+    error_summary_lines = []
+    for er in error_requests[:5]:
+        error_summary_lines.append(f"- HTTP {er.get('method')} {er.get('path')} returned Status {er.get('status_code')} ({er.get('status_text')}) at {er.get('timestamp')}")
+    for ce in critical_events[:4]:
+        error_summary_lines.append(f"- Event [{ce.get('severity').upper()}]: {ce.get('description')} at {ce.get('time')}")
+
+    error_context = "\n".join(error_summary_lines)
+
+    system_prompt = (
+        "You are an expert AI Reliability Engineer analyzing live HTTP error logs and telemetry from a target application running on Port 5000.\n"
+        "Analyze the dynamic HTTP response errors provided and determine the exact root cause, rank probabilities, and suggest step-by-step resolution.\n"
+        "Return a valid JSON object strictly matching this format:\n"
+        "{\n"
+        '  "headline": "Short title describing the HTTP error incident",\n'
+        '  "summary": "Detailed explanation of why the error response occurred",\n'
+        '  "ranked_causes": [\n'
+        '     {"rank": 1, "title": "Cause 1", "probability": 92, "details": "Explanation", "status_badge": "PRIMARY CAUSE"}\n'
+        "  ],\n"
+        '  "recommended_action": "Clear step-by-step resolution command/action"\n'
+        "}"
+    )
+
+    user_prompt = f"Live Error Log Responses:\n{error_context}"
+    ai_raw = query_featherless_ai(system_prompt, user_prompt)
+
+    # Parse Featherless AI response
+    if ai_raw:
+        try:
+            cleaned = ai_raw.strip()
+            if cleaned.startswith("```json"):
+                cleaned = cleaned[7:]
+            if cleaned.endswith("```"):
+                cleaned = cleaned[:-3]
+            ai_data = json.loads(cleaned.strip())
+            
+            return {
+                "has_error": True,
+                "status": "ACTIVE_INCIDENT",
+                "active_alert": True,
+                "headline": f"🚨 Featherless AI Analysis: {ai_data.get('headline', 'HTTP Error Detected')}",
+                "confidence": 94,
+                "featherless_model": FEATHERLESS_MODEL,
+                "summary": ai_data.get("summary", "Dynamic HTTP error response detected by Featherless AI."),
+                "primary_cause": {
+                    "title": ai_data.get("headline", "HTTP Response Error"),
+                    "probability": 94,
+                    "summary": ai_data.get("summary", "HTTP error response detected in live traffic."),
+                    "affected_services": ["Port 5000 Application", "Proxy Interceptor"]
+                },
+                "ranked_causes": ai_data.get("ranked_causes", []),
+                "recommended_action": ai_data.get("recommended_action", "Execute automated rollback or inspect target app logs."),
+                "rollback_available": True
+            }
+        except Exception:
+            pass
+
+    # Fallback error structure if Featherless returned non-JSON text
     return {
+        "has_error": True,
         "status": "ACTIVE_INCIDENT",
         "active_alert": True,
-        "headline": "CRITICAL INCIDENT: Database Pool Exhaustion & 500 Error Cascade",
+        "headline": "🚨 HTTP 500 Error Detected on Target App (Port 5000)",
         "confidence": 94,
         "featherless_model": FEATHERLESS_MODEL,
+        "summary": ai_raw or "HTTP 500 Internal Server Error detected on Port 5000 target endpoint.",
         "primary_cause": {
-            "title": "PR #42 — Schema Migration & Database Lock",
+            "title": "Port 5000 HTTP 500 Error Cascade",
             "probability": 94,
-            "author": "alex.dev@quantum.io",
-            "commit": "a3f891b (2026-07-31 13:58:00)",
-            "summary": "Pull Request #42 ('alter_users_table.sql') executed an exclusive lock on the primary transactions DB node. This caused thread starvation in AuthService, triggering cascading null pointer exceptions during payload deserialization.",
-            "affected_services": ["AuthService", "DBCluster-01", "PaymentGateway", "WorkerPool-3"]
+            "summary": "Target application returned HTTP 500 Internal Error during active request processing.",
+            "affected_services": ["Port 5000 Microservice"]
         },
         "ranked_causes": [
             {
                 "rank": 1,
-                "title": "PR #42 Database Lock & Migration Collision",
+                "title": "HTTP 500 Internal Server Error",
                 "probability": 94,
                 "severity": "CRITICAL",
-                "details": "Exclusive table lock on 'users' table during index migration blocked 42 auth threads within 12 seconds.",
-                "status_badge": "PRIMARY CAUSE"
-            },
-            {
-                "rank": 2,
-                "title": "3rd Party API Schema Breaking Change (Interception Success)",
-                "probability": 88,
-                "severity": "WARNING (INTERCEPTED)",
-                "details": "3rd Party Auth0 API omitted required 'device_type' key. SchemaMedic repaired payload in 1.2ms with 95% confidence.",
-                "status_badge": "INTERCEPTED & FIXED"
-            },
-            {
-                "rank": 3,
-                "title": "Unbounded Recursion in Legacy Parser (Secondary)",
-                "probability": 65,
-                "severity": "HIGH",
-                "details": "Fallback parser retried null payloads continuously due to timeout under memory pressure.",
-                "status_badge": "SECONDARY EFFECT"
+                "details": "Port 5000 app failed to process incoming request, returning HTTP 500.",
+                "status_badge": "PRIMARY ERROR"
             }
         ],
-        "timeline_highlights": {
-            "first_anomaly": "14:00:05 (Memory allocation exceeded 85% threshold)",
-            "fatal_exception": "14:00:12 (Null Pointer Access at 0x00000008)",
-            "prevented_failure": "14:00:15 (SchemaMedic repaired 3 missing field payloads)"
-        },
-        "recommended_action": "Automated rollback of Pull Request #42 will release table locks and restore normal thread allocation.",
+        "recommended_action": "Check Port 5000 application logs or click Execute Automated Rollback.",
         "rollback_available": True
     }
 
@@ -143,7 +214,6 @@ def handle_ai_chat(query, events=None, rollback_executed=False, http_requests=No
     """
     AI Assistant interactive chat logic feeding dynamic real-time logs to Featherless.ai API.
     """
-    # 1. Build dynamic log context string
     recent_reqs_summary = "None"
     if http_requests and len(http_requests) > 0:
         recent_reqs_summary = "\n".join([
@@ -167,28 +237,17 @@ def handle_ai_chat(query, events=None, rollback_executed=False, http_requests=No
 
     system_prompt = (
         "You are EchoTrace & SchemaMedic AI, an autonomous microservice resilience and root-cause assistant monitoring a target application on Port 5000 from Port 5001.\n"
-        f"Rollback Status: {'Executed (PR #42 Reverted)' if rollback_executed else 'Active Incident (PR #42 DB Lock Active)'}\n\n"
+        f"Rollback Status: {'Executed' if rollback_executed else 'Active'}\n\n"
         "=== LIVE REAL-TIME LOGS STREAM (PORT 5000 & PROXY) ===\n"
         f"Latest HTTP Traffic Stream:\n{recent_reqs_summary}\n\n"
         f"Latest EchoTrace Incident Events:\n{recent_events_summary}\n\n"
         f"Latest SchemaMedic Payload Repairs:\n{recent_repairs_summary}\n"
         "=======================================================\n\n"
-        "Provide direct, concise, and helpful answers analyzing these live logs and resilience events. Format key points in markdown bold."
+        "Provide direct, concise, and helpful answers analyzing these live logs and resilience events. If no errors exist in the logs, explicitly state 'No issues till now'."
     )
 
-    # 2. Query Featherless.ai
     ai_reply = query_featherless_ai(system_prompt, query)
     if ai_reply:
         return ai_reply
 
-    # Fallback if Featherless API is unreachable or rate-limited
-    q = query.lower()
-    if "root cause" in q or "why" in q or "crash" in q or "fail" in q or "500" in q:
-        if rollback_executed:
-            return "The incident has been resolved! The root cause was exclusive table locking in **PR #42** ('alter_users_table.sql'). The automated rollback successfully released DB locks."
-        return f"Based on live log stream from Port 5000, the root cause is **PR #42 (Commit a3f891b)**. It executed an exclusive table lock on the primary DB node, causing HTTP 500 errors and thread starvation.\n\n*Live Logs Context Sent to Featherless.ai ({FEATHERLESS_MODEL})*"
-
-    if "schema" in q or "medic" in q or "repair" in q or "payload" in q:
-        return f"**SchemaMedic** is active. It intercepts broken payloads and auto-repairs missing/legacy fields (e.g. mapping `usr_id` ➔ `user_id`) with up to 95% confidence.\n\n*Live Logs Context Sent to Featherless.ai ({FEATHERLESS_MODEL})*"
-
-    return f"EchoTrace & SchemaMedic AI Assistant (Featherless.ai Model: `{FEATHERLESS_MODEL}`): I am analyzing the dynamic log stream from Port 5000. Ask me about HTTP 500 errors, root cause analysis, or payload repairs!"
+    return f"EchoTrace AI Assistant (Featherless.ai Model: `{FEATHERLESS_MODEL}`): Monitoring live response traffic on Port 5000. No issues till now."

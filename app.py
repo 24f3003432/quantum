@@ -180,7 +180,7 @@ def pretty_json_filter(val):
 def index():
     parse_dup_log_file()
     target_info = inspect_target_app_live()
-    analysis = get_root_cause_analysis(echo_trace_events, rollback_executed)
+    analysis = get_root_cause_analysis(echo_trace_events, rollback_executed, http_request_stream)
     metrics = get_live_metrics()
     return render_template(
         "index.html",
@@ -207,7 +207,7 @@ def api_inspector():
 def timeline():
     parse_dup_log_file()
     target_info = inspect_target_app_live()
-    analysis = get_root_cause_analysis(echo_trace_events, rollback_executed)
+    analysis = get_root_cause_analysis(echo_trace_events, rollback_executed, http_request_stream)
     filter_type = request.args.get("filter", "all")
     
     filtered_events = echo_trace_events
@@ -231,7 +231,7 @@ def timeline():
 def root_cause_view():
     parse_dup_log_file()
     target_info = inspect_target_app_live()
-    analysis = get_root_cause_analysis(echo_trace_events, rollback_executed)
+    analysis = get_root_cause_analysis(echo_trace_events, rollback_executed, http_request_stream)
     return render_template(
         "root_cause.html",
         analysis=analysis,
@@ -313,7 +313,7 @@ def proxy_gateway(path):
 def api_dashboard_full_state():
     parse_dup_log_file()
     target_info = inspect_target_app_live()
-    analysis = get_root_cause_analysis(echo_trace_events, rollback_executed)
+    analysis = get_root_cause_analysis(echo_trace_events, rollback_executed, http_request_stream)
     metrics = get_live_metrics()
 
     return jsonify({
