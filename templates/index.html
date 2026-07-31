@@ -21,9 +21,9 @@
             <a href="{{ url_for('root_cause_view') }}" class="nav-item">AI Root Cause Hub</a>
             <a href="{{ url_for('proxy_sandbox') }}" class="nav-item">Live Proxy Sandbox</a>
         </nav>
-        <div class="status-pill" id="statusPillContainer" style="background: rgba(245, 158, 11, 0.15); border-color: rgba(245, 158, 11, 0.3); color: #fbbf24;">
+        <div class="status-pill" id="statusPillContainer" style="background: {% if target_info and target_info.connected %}rgba(16, 185, 129, 0.15){% else %}rgba(245, 158, 11, 0.15){% endif %}; border-color: {% if target_info and target_info.connected %}rgba(16, 185, 129, 0.3){% else %}rgba(245, 158, 11, 0.3){% endif %}; color: {% if target_info and target_info.connected %}#34d399{% else %}#fbbf24{% endif %};">
             <span class="status-dot"></span>
-            <span id="statusPillText">Target App (Port 5000): 🔴 WAITING...</span>
+            <span id="statusPillText">Target App (Port 5000): {% if target_info and target_info.connected %}🟢 ONLINE ({{ target_info.latency_ms }}){% else %}🔴 WAITING...{% endif %}</span>
         </div>
     </header>
 
@@ -82,6 +82,22 @@
                 <div style="font-size: 0.8rem; color: #34d399; font-weight: 600;">⚡ Dynamic Reactive Loop Active (2s)</div>
             </div>
             <div id="liveTargetStatusBody">
+                {% if target_info and target_info.connected %}
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+                    <div style="background: rgba(15, 23, 42, 0.7); padding: 0.85rem; border-radius: 8px; border: 1px solid var(--green-border);">
+                        <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Target App Status</div>
+                        <div style="font-size: 1.1rem; font-weight: 800; color: #34d399; margin-top: 0.2rem;">🟢 ONLINE ({{ target_info.status_text }})</div>
+                    </div>
+                    <div style="background: rgba(15, 23, 42, 0.7); padding: 0.85rem; border-radius: 8px; border: 1px solid var(--card-border);">
+                        <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Proxy Gateway URL</div>
+                        <div style="font-size: 1.05rem; font-weight: 800; color: #38bdf8; margin-top: 0.2rem;">http://127.0.0.1:5001/proxy/</div>
+                    </div>
+                    <div style="background: rgba(15, 23, 42, 0.7); padding: 0.85rem; border-radius: 8px; border: 1px solid var(--card-border);">
+                        <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Latest Latency</div>
+                        <div style="font-size: 1.05rem; font-weight: 800; color: #c084fc; margin-top: 0.2rem;">⚡ {{ target_info.latency_ms }}</div>
+                    </div>
+                </div>
+                {% else %}
                 <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid var(--red-border); border-radius: 8px; padding: 1.25rem; text-align: center;">
                     <div style="font-size: 1.5rem; margin-bottom: 0.3rem;">🔴</div>
                     <div style="font-size: 1.05rem; font-weight: 800; color: #fca5a5;">Waiting for Port 5000 Application</div>
@@ -89,6 +105,7 @@
                         No active listener found on <code>http://127.0.0.1:5000</code>. Start your app on port 5000 and data will stream here dynamically in real-time.
                     </p>
                 </div>
+                {% endif %}
             </div>
         </section>
 

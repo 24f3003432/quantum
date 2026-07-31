@@ -92,14 +92,17 @@ def inspect_target_app_live():
     endpoints = ["/", "/health", "/api/telemetry", "/telemetry", "/api", "/metrics", "/data"]
     start_time = time.time()
     
-    for ep in endpoints:
-        url = f"{TARGET_APP_URL}{ep}"
-        try:
-            req = urllib.request.Request(
-                url, 
-                headers={"User-Agent": "SchemaMedic-EchoTrace-Inspector/1.0", "Accept": "application/json, text/html, */*"}
-            )
-            with urllib.request.urlopen(req, timeout=1.2) as resp:
+    # Try 127.0.0.1 and localhost
+    target_bases = [TARGET_APP_URL, "http://localhost:5000"]
+    for base in target_bases:
+        for ep in endpoints:
+            url = f"{base}{ep}"
+            try:
+                req = urllib.request.Request(
+                    url, 
+                    headers={"User-Agent": "SchemaMedic-EchoTrace-Inspector/1.0", "Accept": "application/json, text/html, */*"}
+                )
+                with urllib.request.urlopen(req, timeout=2.5) as resp:
                 latency_ms = round((time.time() - start_time) * 1000, 2)
                 raw_body = resp.read().decode('utf-8', errors='ignore')
                 status_code = resp.status
