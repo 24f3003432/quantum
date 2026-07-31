@@ -10,10 +10,12 @@ from data import (
     schema_medic_data, 
     echo_trace_events, 
     http_request_stream,
+    external_api_conversations,
     git_commits, 
     deployments, 
     add_schema_repair_record, 
     log_http_request,
+    log_external_api_conversation,
     execute_rollback_state, 
     reset_demo_state,
     get_live_metrics,
@@ -320,6 +322,7 @@ def api_dashboard_full_state():
         "target_info": target_info,
         "metrics": metrics,
         "http_requests": http_request_stream,
+        "external_api_conversations": external_api_conversations,
         "schema_medic_data": schema_medic_data,
         "echo_trace_events": echo_trace_events,
         "analysis": analysis,
@@ -328,6 +331,31 @@ def api_dashboard_full_state():
         "log_file_source": DUP_LOG_FILE,
         "timestamp": time.strftime("%H:%M:%S")
     })
+
+@app.route("/api/external-conversations", methods=["GET"])
+def api_get_external_conversations():
+    return jsonify({
+        "success": True,
+        "count": len(external_api_conversations),
+        "conversations": external_api_conversations
+    })
+
+@app.route("/api/trigger-external-apis", methods=["POST"])
+def api_trigger_external_apis():
+    """Triggers real external API calls on Port 5000 target application"""
+    try:
+        req = urllib.request.Request(
+            f"{TARGET_APP_URL}/api/external/trigger",
+            data=b"{}",
+            headers={"Content-Type": "application/json", "User-Agent": "SchemaMedic-Platform/1.0"},
+            method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=4.0) as resp:
+            data = json.loads(resp.read().decode('utf-8'))
+            return jsonify({"success": True, "details": data})
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Target App on Port 5000 not reachable or error: {str(e)}"}), 500
+
 
 @app.route("/api/proxy/repair-sample", methods=["POST"])
 def api_proxy_repair_sample():

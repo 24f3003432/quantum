@@ -7,46 +7,23 @@ rollback_executed = False
 # Dynamic HTTP requests stream (populated ONLY when new HTTP requests occur on port 5000)
 http_request_stream = []
 
-schema_medic_data = [
-    {
-        "id": "MED-101",
-        "schema_id": "user_auth",
-        "service_name": "Port 5000 Auth Endpoint",
-        "original_payload": json.dumps({"usr_id": 4021, "action": "login"}),
-        "repaired_payload": json.dumps({"user_id": 4021, "action": "login", "timestamp": "2026-07-31T14:00:00Z", "device_type": "unknown"}),
-        "confidence": 95,
-        "time": "14:00:02",
-        "changes": [
-            "Remapped 'usr_id' ➔ 'user_id'",
-            "Inferred missing field 'device_type' ➔ 'unknown'"
-        ]
-    },
-    {
-        "id": "MED-102",
-        "schema_id": "payment_transaction",
-        "service_name": "Port 5000 Payment Gateway",
-        "original_payload": json.dumps({"tx_id": "TX-9821", "amt": 149.99, "curr": "USD"}),
-        "repaired_payload": json.dumps({"transaction_id": "TX-9821", "amount": 149.99, "currency": "USD", "status": "pending", "customer_email": "unspecified@domain.com"}),
-        "confidence": 92,
-        "time": "14:00:08",
-        "changes": [
-            "Remapped 'tx_id' ➔ 'transaction_id'",
-            "Remapped 'amt' ➔ 'amount'",
-            "Inferred missing 'status' ➔ 'pending'"
-        ]
-    }
-]
+import json
+from datetime import datetime
 
-echo_trace_events = [
-    {
-        "id": "EVT-1001",
-        "time": "13:58:00",
-        "event_type": "Git Commit Deployed",
-        "severity": "commit",
-        "source": "Git / CI-CD",
-        "description": "PR #42 deployed by alex.dev: 'alter_users_table.sql (Add index & migrate columns)'"
-    }
-]
+# Global State Variables
+rollback_executed = False
+
+# Dynamic HTTP requests stream (populated ONLY when new HTTP requests occur on port 5000)
+http_request_stream = []
+
+# Dynamic External API Conversations Stream (captured from Port 5000 external API integrations)
+external_api_conversations = []
+
+# Dynamic SchemaMedic Repair Records
+schema_medic_data = []
+
+# Dynamic EchoTrace Events Stream
+echo_trace_events = []
 
 git_commits = [
     {
@@ -107,6 +84,44 @@ def log_http_request(method, path, status_code, latency_ms, payload_summary=""):
         "description": f"HTTP {method.upper()} {path} - {status_text} ({latency_ms} ms)"
     })
 
+def log_external_api_conversation(service_name, target_url, method, status_code, latency_ms, request_payload=None, response_payload=None):
+    """
+    Logs dynamic external API conversations captured from Port 5000 application external integrations.
+    """
+    now_str = datetime.now().strftime("%H:%M:%S")
+    conv_id = f"EXT-{len(external_api_conversations) + 100}"
+    
+    req_str = json.dumps(request_payload) if isinstance(request_payload, (dict, list)) else str(request_payload or "N/A")
+    resp_str = json.dumps(response_payload) if isinstance(response_payload, (dict, list)) else str(response_payload or "N/A")
+
+    conv_entry = {
+        "id": conv_id,
+        "service_name": service_name,
+        "target_url": target_url,
+        "method": method.upper(),
+        "status_code": status_code,
+        "status_text": f"{status_code} OK" if status_code == 200 else f"HTTP {status_code}",
+        "latency": f"{latency_ms} ms",
+        "timestamp": now_str,
+        "request_payload": req_str[:300],
+        "response_payload": resp_str[:300]
+    }
+    external_api_conversations.insert(0, conv_entry)
+
+    severity = "critical" if status_code >= 500 else ("warning" if status_code >= 400 else "info")
+    echo_trace_events.insert(0, {
+        "id": f"EVT-{len(echo_trace_events) + 1000}",
+        "time": now_str,
+        "event_type": f"External API ({service_name})",
+        "severity": severity,
+        "source": f"Port 5000 ➔ {service_name}",
+        "description": f"External HTTP {method.upper()} {target_url} — {status_code} ({latency_ms} ms)"
+    })
+    
+    # Also log to HTTP request stream for unified real-time visibility
+    log_http_request(method, f"External: {service_name}", status_code, latency_ms, f"Target: {target_url}")
+    return conv_entry
+
 def add_schema_repair_record(record):
     """Adds a newly repaired payload record from Proxy Sandbox or live inspection"""
     schema_medic_data.insert(0, record)
@@ -141,14 +156,16 @@ def reset_demo_state():
 
 def get_live_metrics():
     """Computes dynamic metrics in real time"""
-    total_intercepted = len(schema_medic_data) + len(http_request_stream)
+    total_intercepted = len(schema_medic_data) + len(http_request_stream) + len(external_api_conversations)
     failures_prevented = len(schema_medic_data)
-    avg_confidence = round(sum(r.get("confidence", 90) for r in schema_medic_data) / max(1, len(schema_medic_data)), 1)
+    avg_confidence = round(sum(r.get("confidence", 90) for r in schema_medic_data) / max(1, len(schema_medic_data)), 1) if schema_medic_data else 95.0
     
     return {
         "total_intercepted": total_intercepted,
         "failures_prevented": failures_prevented,
+        "external_api_count": len(external_api_conversations),
         "avg_confidence": f"{avg_confidence}%",
         "rollback_executed": rollback_executed,
         "state_badge": "RESOLVED" if rollback_executed else "ACTIVE INCIDENT"
     }
+

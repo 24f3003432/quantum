@@ -128,6 +128,40 @@
             </div>
         </div>
 
+        <!-- Captured External API Conversations Section -->
+        <section class="card" style="border: 1px solid rgba(192, 132, 252, 0.3); background: linear-gradient(135deg, rgba(30, 27, 75, 0.4), rgba(15, 23, 42, 0.9));">
+            <div class="card-header-flex">
+                <div>
+                    <h2>🌐 Captured External API Conversations (Port 5000 Outbound Traffic)</h2>
+                    <p style="margin: 0.2rem 0 0 0; font-size: 0.85rem; color: var(--text-muted);">
+                        Real HTTP request-response conversations executed between Port 5000 app and external services (Weather, Exchange Rates, Identity).
+                    </p>
+                </div>
+                <button onclick="triggerExternalAPICalls()" class="btn-primary" style="background: linear-gradient(135deg, #a855f7, #6366f1);">
+                    ⚡ Fetch Live External API Data
+                </button>
+            </div>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>External Service</th>
+                        <th>Target Endpoint URL</th>
+                        <th>Status</th>
+                        <th>Latency</th>
+                        <th>Response Payload Summary</th>
+                    </tr>
+                </thead>
+                <tbody id="externalAPITableBody">
+                    <tr>
+                        <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 1.2rem;">
+                            No external API conversations recorded yet. Start Port 5000 app or click <strong>Fetch Live External API Data</strong>.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
         <!-- Section 1: Schema Medic Live Overview -->
         <section class="card">
             <div class="card-header-flex">

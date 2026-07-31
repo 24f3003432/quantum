@@ -19,6 +19,9 @@ async function fetchFullDynamicState() {
         // 3. Dynamic HTTP Request Stream
         updateHTTPRequestStream(data.http_requests, data.target_info);
 
+        // 3b. Captured External API Conversations
+        updateExternalAPIConversations(data.external_api_conversations);
+
         // 4. SchemaMedic Repair Feeds (Dashboard Table + Full Inspector Cards)
         updateSchemaMedicTable(data.schema_medic_data);
         updateSchemaMedicInspector(data.schema_medic_data);
@@ -139,7 +142,54 @@ function updateHTTPRequestStream(requests, info) {
                 </tbody>
             </table>
         </div>
-    `;
+}
+
+// 3b. Captured External API Conversations
+function updateExternalAPIConversations(conversations) {
+    const tableBody = document.getElementById("externalAPITableBody");
+    if (!tableBody) return;
+
+    if (!conversations || conversations.length === 0) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 1.2rem;">
+                    No external API conversations recorded yet. Start Port 5000 app or click <strong>Fetch Live External API Data</strong>.
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    let html = "";
+    conversations.forEach(conv => {
+        const statusColor = conv.status_code >= 400 ? "#fca5a5" : "#34d399";
+        html += `
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); transition: all 0.3s ease;">
+                <td><span class="item-id-badge" style="background: rgba(192, 132, 252, 0.15); color: #c084fc; border: 1px solid rgba(192, 132, 252, 0.3);">${conv.id}</span></td>
+                <td><strong style="color: #f8fafc;">${escapeHtml(conv.service_name)}</strong></td>
+                <td><code style="color: #38bdf8; font-size: 0.8rem;">${escapeHtml(conv.target_url)}</code></td>
+                <td><span style="font-weight: 700; color: ${statusColor};">${conv.status_text}</span></td>
+                <td><span style="color: #c084fc; font-weight: 600; font-size: 0.85rem;">⚡ ${conv.latency}</span></td>
+                <td><code style="color: #cbd5e1; font-size: 0.8rem;">${escapeHtml(conv.response_payload)}</code></td>
+            </tr>
+        `;
+    });
+    tableBody.innerHTML = html;
+}
+
+async function triggerExternalAPICalls() {
+    try {
+        const resp = await fetch("/api/trigger-external-apis", { method: "POST" });
+        const res = await resp.json();
+        if (res.success) {
+            showToast("⚡ External API Calls Executed & Conversations Captured!");
+            fetchFullDynamicState();
+        } else {
+            showToast("⚠️ Could not reach Port 5000: " + (res.error || "Offline"));
+        }
+    } catch (e) {
+        console.warn("External API trigger error:", e);
+    }
 }
 
 // 4. SchemaMedic Repair Table Feed (Dashboard)
