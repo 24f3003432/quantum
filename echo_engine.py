@@ -85,14 +85,13 @@ def get_root_cause_analysis(events=None, rollback_executed=False, http_requests=
             "rollback_available": False
         }
 
-    # 1. Scan for actual error responses in HTTP traffic stream & events
-    error_requests = []
-    if http_requests:
-        error_requests = [r for r in http_requests if r.get("status_code", 200) >= 400]
+    # 1. Scan for actual error responses in RECENT HTTP traffic stream (latest 5 requests)
+    recent_traffic = (http_requests[:5] if http_requests else [])
+    error_requests = [r for r in recent_traffic if r.get("status_code", 200) >= 400]
 
-    critical_events = []
-    if events:
-        critical_events = [e for e in events if e.get("severity") in ["critical", "warning"]]
+    # Scan recent events for active critical errors
+    recent_events = (events[:5] if events else [])
+    critical_events = [e for e in recent_events if e.get("severity") == "critical" and "HTTP 500" in e.get("description", "")]
 
     # 2. IF NO ERRORS DETECTED -> Display clean "No issues till now"
     if not error_requests and not critical_events:
