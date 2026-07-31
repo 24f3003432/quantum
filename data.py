@@ -142,7 +142,7 @@ def reset_demo_state():
 def get_live_metrics():
     """Computes dynamic metrics in real time"""
     total_intercepted = len(schema_medic_data) + len(http_request_stream)
-    failures_prevented = len(schema_medic_data) + 12
+    failures_prevented = len(schema_medic_data)
     avg_confidence = round(sum(r.get("confidence", 90) for r in schema_medic_data) / max(1, len(schema_medic_data)), 1)
     
     return {
