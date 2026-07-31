@@ -247,16 +247,6 @@ def root_cause_view():
         target_info=target_info
     )
 
-@app.route("/proxy-sandbox")
-def proxy_sandbox():
-    parse_dup_log_file()
-    target_info = inspect_target_app_live()
-    return render_template(
-        "proxy_sandbox.html",
-        schemas=TARGET_SCHEMAS,
-        schema_medic_data=schema_medic_data,
-        target_info=target_info
-    )
 
 # --- Dynamic Transparent HTTP Request Gateway & REST APIs ---
 
