@@ -343,9 +343,9 @@ def api_get_external_conversations():
         "conversations": external_api_conversations
     })
 
-@app.route("/api/trigger-external-apis", methods=["POST"])
+@app.route("/api/trigger-external-apis", methods=["POST", "GET"])
 def api_trigger_external_apis():
-    """Triggers real external API calls on Port 5000 target application"""
+    """Triggers real external API calls on Port 5000 target application with fallback"""
     try:
         req = urllib.request.Request(
             f"{TARGET_APP_URL}/api/external/trigger",
@@ -355,9 +355,15 @@ def api_trigger_external_apis():
         )
         with urllib.request.urlopen(req, timeout=4.0) as resp:
             data = json.loads(resp.read().decode('utf-8'))
-            return jsonify({"success": True, "details": data})
+            return jsonify({"success": True, "details": data, "conversations": external_api_conversations})
     except Exception as e:
-        return jsonify({"success": False, "error": f"Target App on Port 5000 not reachable or error: {str(e)}"}), 500
+        # Fallback to direct execution of target_app external API fetchers if Port 5000 HTTP endpoint returns 404 or is initializing
+        try:
+            from target_app import trigger_all_external_apis
+            res = trigger_all_external_apis()
+            return jsonify({"success": True, "details": res, "conversations": external_api_conversations, "fallback": True})
+        except Exception as ex:
+            return jsonify({"success": False, "error": f"Error triggering external APIs: {str(ex)}"}), 500
 
 
 @app.route("/api/proxy/repair-sample", methods=["POST"])
