@@ -427,7 +427,13 @@ def api_trigger_rollback():
 def api_chat():
     data = request.get_json(force=True) or {}
     message = data.get("message", "")
-    response_text = handle_ai_chat(message, echo_trace_events, rollback_executed)
+    response_text = handle_ai_chat(
+        message, 
+        events=echo_trace_events, 
+        rollback_executed=rollback_executed, 
+        http_requests=http_request_stream, 
+        schema_data=schema_medic_data
+    )
     return jsonify({
         "success": True,
         "reply": response_text
