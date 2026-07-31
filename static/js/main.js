@@ -197,15 +197,20 @@ function updateSchemaMedicTable(records) {
     const tableBody = document.getElementById("schemaMedicTableBody");
     if (!tableBody || !records) return;
 
+    if (records.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 1.2rem;">No SchemaMedic payload interceptions recorded yet. Make an API call to Port 5000 or click <strong>⚡ Inject Live Payload Repair</strong>.</td></tr>`;
+        return;
+    }
+
     let html = "";
     records.slice(0, 6).forEach(item => {
         html += `
             <tr style="transition: all 0.3s ease;">
-                <td><span class="item-id-badge">${item.id}</span></td>
-                <td><strong>${item.service_name}</strong></td>
+                <td><span class="item-id-badge">${escapeHtml(item.id)}</span></td>
+                <td><strong>${escapeHtml(item.service_name)}</strong></td>
                 <td><code style="color: var(--red-text); font-size: 0.85rem;">${escapeHtml(item.original_payload)}</code></td>
                 <td><code style="color: var(--green-text); font-size: 0.85rem;">${escapeHtml(item.repaired_payload)}</code></td>
-                <td><span class="confidence-badge">${item.confidence}%</span></td>
+                <td><span class="confidence-badge">${escapeHtml(String(item.confidence))}%</span></td>
             </tr>
         `;
     });
