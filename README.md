@@ -1,35 +1,31 @@
 # SchemaMedic + EchoTrace
-### An AI platform that prevents API failures — and diagnoses the ones it can't stop
 
-> "Our platform doesn't just detect production failures — it prevents some
-> failures from happening (SchemaMedic), and when failures still occur,
-> EchoTrace finds the root cause automatically."
+### An AI platform that prevents API failures and automatically identifies the root cause of production incidents.
 
----
-
-## The Pitch
-
-Most reliability tooling does one job: it either watches your system or it
-alerts you after something breaks. This platform does both ends of the
-incident lifecycle in one integrated flow:
-
-1. **SchemaMedic** sits in front of third-party APIs as a proxy. When an
-   upstream API silently changes its response shape — a renamed field, a
-   missing key, a type change — SchemaMedic detects the mismatch, repairs
-   the payload using AI-assisted schema mapping, and forwards a
-   contract-safe response to your backend. Many failures never happen at all.
-2. **EchoTrace** watches what does go wrong. It ingests logs, metrics,
-   deployment history, and git commits into a unified incident context,
-   then uses an LLM to rank likely root causes, explain *why*, and suggest
-   concrete next steps — in seconds instead of an on-call engineer digging
-   through dashboards.
-
-**Prevent what you can. Diagnose what you can't.** That combined story is
-the core differentiator versus either feature alone.
+> **Prevent failures before they happen. Diagnose the ones you can't prevent.**
 
 ---
 
-## Architecture
+# Problem Statement
+
+Modern applications depend on third-party APIs and distributed services. A small API schema change or an unexpected production issue can lead to application failures, downtime, and lengthy debugging.
+
+Existing tools either monitor failures after they occur or validate API contracts during development. Our solution bridges this gap by combining intelligent API resilience with AI-powered root cause analysis.
+
+---
+
+# Our Solution
+
+SchemaMedic + EchoTrace is an integrated AI platform that improves application reliability in two ways:
+
+- **SchemaMedic** intercepts third-party API responses, detects schema mismatches, and automatically repairs incompatible responses before they reach the application.
+- **EchoTrace** analyzes logs, metrics, deployment history, and code changes to identify the most likely root cause of production incidents and recommend the next debugging steps.
+
+Together, they provide both **failure prevention** and **rapid incident diagnosis** within a single platform.
+
+---
+
+# Architecture
 
 ```
                      Internet
@@ -38,165 +34,91 @@ the core differentiator versus either feature alone.
                Third-party APIs
                         │
               ┌───────────────────┐
-              │    SchemaMedic     │   API proxy · schema diff · AI repair
+              │    SchemaMedic     │
+              │ AI Schema Repair   │
               └───────────────────┘
                         │
                Fixed API Response
                         │
-                  Your Backend
+                  Application
                         │
                 Logs + Metrics
                         │
               ┌───────────────────┐
-              │     EchoTrace      │   Log/metric/git ingestion · AI RCA
+              │     EchoTrace      │
+              │ AI Root Cause      │
               └───────────────────┘
                         │
-             AI Root Cause Report
+              AI Incident Report
                         │
                         ▼
-                  Dashboard (Person 5)
+                 Unified Dashboard
 ```
 
-Two independent pipelines feed one dashboard: SchemaMedic protects the
-request path, EchoTrace explains what happens after something still fails.
+---
+
+# Key Features
+
+### SchemaMedic
+- Detects API schema changes automatically.
+- Repairs incompatible JSON responses using AI.
+- Prevents application failures caused by API contract changes.
+- Returns a contract-safe response to the backend.
+
+### EchoTrace
+- Collects logs, metrics, deployment history, and Git commits.
+- Uses AI to identify the most probable root cause.
+- Generates human-readable explanations.
+- Suggests actionable remediation steps.
 
 ---
 
-## Work Distribution (5 People)
+# Technology Stack
 
-### Person 1 — Backend & API Middleware (SchemaMedic core)
-- API proxy / reverse proxy in front of third-party APIs
-- Response interception
-- Schema comparison against an expected contract
-- Payload repair orchestration
-- Forwarding the fixed response downstream
-- **Tech:** FastAPI / Flask / Express, reverse proxy
-- **Deliverable:** `Incoming API → Middleware → Fixed JSON`
-
-### Person 2 — AI & Schema Repair
-- Prompt engineering for repair suggestions
-- JSON repair logic (structural fixes, not just field renames)
-- Key mapping (e.g. `name → full_name`)
-- Missing field inference
-- Confidence scoring per repair
-- **Tech:** GPT / Ollama, LangChain, Pydantic
-- **Example:** `name → full_name → 95% confidence`
-
-### Person 3 — EchoTrace Backend
-- Reads logs
-- Reads deployment history
-- Parses git commits
-- Collects monitoring events
-- Generates a timeline
-- **Pipeline:** `Logs + Metrics + Git + Deployment → Unified incident context`
-- Sends this unified context as JSON to Person 4
-
-### Person 4 — AI Root Cause Engine
-- Analyzes the incident context from Person 3
-- Ranks likely causes
-- Generates plain-language explanations
-- Suggests concrete debugging/remediation steps
-- Produces structured incident summaries
-- **Example output:** `Most likely cause → Recent migration → Rollback recommended`
-- **Tech:** FastAPI, Pydantic, Ollama (Qwen2.5:7B) / OpenAI-compatible APIs, SQLite
-
-### Person 5 — Frontend, Dashboard & Demo
-- Incident dashboard
-- Incident timeline view
-- Schema diff / repair visualization
-- AI chat interface for querying incidents
-- Owns demo orchestration end-to-end
-- **Screens:** Incident Dashboard · AI Analysis · API Inspector · Root Cause
-  Timeline · Schema Repair Viewer
+| Layer | Technology |
+|-------|------------|
+| Frontend | HTML, CSS, JavaScript |
+| Backend | Python (Flask) |
+| AI | Featherless AI |
+| Database | SQLite |
 
 ---
 
-## Suggested Tech Stack
+# How It Works
 
-| Layer | Choice |
-|---|---|
-| Frontend | React + Tailwind CSS |
-| Backend | FastAPI |
-| LLM | Ollama (Qwen/Llama) or an OpenAI-compatible API |
-| Database | PostgreSQL or SQLite |
-| Monitoring | OpenTelemetry + Prometheus (or simulated metrics for the demo) |
-| Visualization | Mermaid or React Flow for timelines and dependency graphs |
+1. A third-party API returns an unexpected or incompatible response.
+2. SchemaMedic detects the schema mismatch and automatically repairs the response before forwarding it to the application.
+3. If a production issue still occurs, EchoTrace collects logs, metrics, deployment history, and Git changes.
+4. The AI analyzes the collected evidence, identifies the most likely root cause, and generates recommended debugging actions.
+5. The dashboard presents both the repaired API response and the complete AI-powered incident analysis.
 
 ---
 
-## Integration Contract
+# Demo Flow
 
-The two subsystems connect through two JSON handoffs:
-
-1. **SchemaMedic → Backend:** a repaired, contract-conformant API response
-   (Person 1 + Person 2's output).
-2. **Person 3 → Person 4:** a unified incident context (logs, metrics,
-   deployment history, git commits, API errors, incident ID + timestamp).
-3. **Person 4 → Person 5:** a structured root cause report (summary,
-   root cause, confidence, severity, evidence, recommendations, owning team).
-
-Keeping these three contracts stable and documented early is what lets all
-5 people build in parallel without blocking each other.
+1. Simulate an API schema change.
+2. Show SchemaMedic automatically repairing the response.
+3. Trigger a production incident.
+4. Demonstrate EchoTrace identifying the root cause.
+5. Display the complete analysis on the unified dashboard.
 
 ---
 
-## Demo Story
+# Why Our Solution?
 
-A suggested live-demo arc for judges:
-
-1. Show a third-party API returning a subtly broken payload (renamed/missing
-   field).
-2. Show SchemaMedic catching and repairing it transparently — your backend
-   never sees the break.
-3. Trigger a real incident (e.g. a bad deployment causing DB timeouts) that
-   SchemaMedic can't prevent.
-4. Show EchoTrace automatically ingesting logs/metrics/deploys/commits and
-   producing a root cause report with a confidence score and a
-   recommendation (e.g. "rollback to v2.13.2").
-5. Close on the dashboard showing both systems working together: prevention
-   on the left, diagnosis on the right.
+Unlike traditional monitoring tools that only report failures after they occur, our platform actively prevents avoidable failures while also providing intelligent root cause analysis for incidents that cannot be prevented. This end-to-end approach reduces downtime, accelerates debugging, and improves overall system reliability.
 
 ---
 
-## Estimated Hackathon Impact
-
-| Scope | Estimated score |
-|---|---|
-| SchemaMedic only | 8.3 / 10 |
-| EchoTrace only | 8.8 / 10 |
-| **Combined platform (prevent + diagnose)** | **9.4 – 9.7 / 10** |
-
-The combination tells a compelling end-to-end story: prevent failures
-caused by API changes, and rapidly diagnose the failures that still occur.
-That integrated prevention + incident-response workflow is the kind of
-narrative that tends to stand out in hackathons, because it addresses both
-resilience and incident response rather than just one.
-
----
-
-## Getting Started
-
-Each person's service can be developed and demoed independently before
-integration:
+# Getting Started
 
 ```bash
-# Person 1 + 2 (SchemaMedic)
-cd schemamedic/
 pip install -r requirements.txt
-uvicorn app:app --reload --port 8000
-
-# Person 3 + 4 (EchoTrace)
-cd echotrace/
-pip install -r requirements.txt
-uvicorn app:app --reload --port 8001
-
-# Person 5 (Dashboard)
-cd dashboard/
-npm install
-npm run dev
+python app.py
 ```
 
-Wire the dashboard to both backend ports once each service's contract is
-stable, and point EchoTrace's `LLM_BACKEND` and SchemaMedic's repair engine
-at whichever LLM provider you're using for the demo (Ollama for an offline
-fallback, or a hosted API for speed/quality).
+Open:
+
+```
+http://localhost:5000
+```
