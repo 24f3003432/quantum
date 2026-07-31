@@ -103,57 +103,57 @@ def inspect_target_app_live():
                     headers={"User-Agent": "SchemaMedic-EchoTrace-Inspector/1.0", "Accept": "application/json, text/html, */*"}
                 )
                 with urllib.request.urlopen(req, timeout=2.5) as resp:
-                latency_ms = round((time.time() - start_time) * 1000, 2)
-                raw_body = resp.read().decode('utf-8', errors='ignore')
-                status_code = resp.status
-                content_type = resp.headers.get("Content-Type", "text/plain")
-                
-                parsed_json = None
-                try:
-                    parsed_json = json.loads(raw_body)
-                except Exception:
+                    latency_ms = round((time.time() - start_time) * 1000, 2)
+                    raw_body = resp.read().decode('utf-8', errors='ignore')
+                    status_code = resp.status
+                    content_type = resp.headers.get("Content-Type", "text/plain")
+                    
                     parsed_json = None
+                    try:
+                        parsed_json = json.loads(raw_body)
+                    except Exception:
+                        parsed_json = None
+
+                    return {
+                        "connected": True,
+                        "url": url,
+                        "target_base": TARGET_APP_URL,
+                        "port": 5000,
+                        "status_code": status_code,
+                        "status_text": f"{status_code} OK" if status_code == 200 else f"HTTP {status_code}",
+                        "status_badge": "🟢 ONLINE (LIVE CONNECTED)",
+                        "latency_ms": f"{latency_ms} ms",
+                        "content_type": content_type,
+                        "parsed_json": parsed_json,
+                        "raw_preview": raw_body[:350] + ("..." if len(raw_body) > 350 else ""),
+                        "timestamp": time.strftime("%H:%M:%S")
+                    }
+            except urllib.error.HTTPError as e:
+                latency_ms = round((time.time() - start_time) * 1000, 2)
+                raw_body = e.read().decode('utf-8', errors='ignore')
+                
+                # Immediately log 500 / 5xx HTTP Error to stream and critical events if not logged in last 3s
+                now_t = time.time()
+                if now_t - last_500_logged_time > 3.0:
+                    last_500_logged_time = now_t
+                    log_http_request("GET", ep, e.code, latency_ms, f"HTTP {e.code} Internal Error on Port 5000")
 
                 return {
                     "connected": True,
                     "url": url,
                     "target_base": TARGET_APP_URL,
                     "port": 5000,
-                    "status_code": status_code,
-                    "status_text": f"{status_code} OK" if status_code == 200 else f"HTTP {status_code}",
-                    "status_badge": "🟢 ONLINE (LIVE CONNECTED)",
+                    "status_code": e.code,
+                    "status_text": f"HTTP {e.code} Error",
+                    "status_badge": f"⚠️ ERROR ({e.code})",
                     "latency_ms": f"{latency_ms} ms",
-                    "content_type": content_type,
-                    "parsed_json": parsed_json,
-                    "raw_preview": raw_body[:350] + ("..." if len(raw_body) > 350 else ""),
+                    "content_type": "text/plain",
+                    "parsed_json": None,
+                    "raw_preview": raw_body[:350] if raw_body else str(e),
                     "timestamp": time.strftime("%H:%M:%S")
                 }
-        except urllib.error.HTTPError as e:
-            latency_ms = round((time.time() - start_time) * 1000, 2)
-            raw_body = e.read().decode('utf-8', errors='ignore')
-            
-            # Immediately log 500 / 5xx HTTP Error to stream and critical events if not logged in last 3s
-            now_t = time.time()
-            if now_t - last_500_logged_time > 3.0:
-                last_500_logged_time = now_t
-                log_http_request("GET", ep, e.code, latency_ms, f"HTTP {e.code} Internal Error on Port 5000")
-
-            return {
-                "connected": True,
-                "url": url,
-                "target_base": TARGET_APP_URL,
-                "port": 5000,
-                "status_code": e.code,
-                "status_text": f"HTTP {e.code} Error",
-                "status_badge": f"⚠️ ERROR ({e.code})",
-                "latency_ms": f"{latency_ms} ms",
-                "content_type": "text/plain",
-                "parsed_json": None,
-                "raw_preview": raw_body[:350] if raw_body else str(e),
-                "timestamp": time.strftime("%H:%M:%S")
-            }
-        except Exception:
-            continue
+            except Exception:
+                continue
 
     return {
         "connected": False,
