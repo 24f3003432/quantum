@@ -29,11 +29,12 @@ TARGET_APP_URL = "http://127.0.0.1:5000"
 DUP_LOG_FILE = "/home/sashank/Downloads/dup/requests.log"
 
 processed_line_signatures = set()
+last_500_logged_time = 0
 
 def parse_dup_log_file():
     """
     Parses /home/sashank/Downloads/dup/requests.log and updates logs
-    ONLY when a NEW user/browser HTTP request is sent to Port 5000.
+    ONLY when a NEW user/browser HTTP request or HTTP Error is sent to Port 5000.
     """
     if not os.path.exists(DUP_LOG_FILE):
         return
@@ -49,10 +50,14 @@ def parse_dup_log_file():
 
             processed_line_signatures.add(line_str)
 
-            match = re.search(r'(\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}).*?\|\s*(GET|POST|PUT|DELETE|PATCH)\s+http://127\.0\.0\.1:5000([^\s|]*).*?User-Agent=([^\r\n]+)', line_str)
-            if match:
-                dt_str, method, path, user_agent = match.groups()
-                
+            # Match 1: Standard full request format with User-Agent
+            match1 = re.search(r'(\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}).*?\|\s*(GET|POST|PUT|DELETE|PATCH)\s+http://127\.0\.0\.1:5000([^\s|]*).*?User-Agent=([^\r\n]+)', line_str)
+            
+            # Match 2: Flask/Werkzeug log lines: 2026-07-31 15:50:49,060 | 127.0.0.1 - - [31/Jul/2026 15:50:49] "GET / HTTP/1.1" 500 -
+            match2 = re.search(r'(\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}).*?"(GET|POST|PUT|DELETE|PATCH)\s+([^\s"]+)\s+HTTP/[0-9.]+"\s+(\d{3})', line_str)
+
+            if match1:
+                dt_str, method, path, user_agent = match1.groups()
                 if "SchemaMedic-EchoTrace-Inspector" in user_agent:
                     continue
 
@@ -61,25 +66,17 @@ def parse_dup_log_file():
                 status_code = 302 if method == 'POST' else 200
                 status_text = "302 Found" if status_code == 302 else "200 OK"
                 
-                http_request_stream.insert(0, {
-                    "id": f"REQ-{len(http_request_stream) + 100}",
-                    "method": method,
-                    "path": path_clean,
-                    "status_code": status_code,
-                    "status_text": status_text,
-                    "latency": "1.4 ms",
-                    "timestamp": time_only,
-                    "payload_summary": f"User-Agent: {user_agent[:45]}"
-                })
-                
-                echo_trace_events.insert(0, {
-                    "id": f"EVT-{len(echo_trace_events) + 1000}",
-                    "time": time_only,
-                    "event_type": f"HTTP {method} Request",
-                    "severity": "info",
-                    "source": "TargetApp (Port 5000)",
-                    "description": f"User HTTP {method} {path_clean} - {status_text} (New Request on Port 5000)"
-                })
+                log_http_request(method, path_clean, status_code, 1.4, f"User-Agent: {user_agent[:45]}")
+
+            elif match2:
+                dt_str, method, path, status_code_str = match2.groups()
+                status_code = int(status_code_str)
+                time_only = dt_str.split()[-1]
+                path_clean = path if path else "/"
+
+                # If HTTP Error (4xx, 5xx), always log immediately into stream & critical events
+                if status_code >= 400:
+                    log_http_request(method, path_clean, status_code, 12.5, f"Port 5000 HTTP {status_code} Error Logged")
 
     except Exception as e:
         print("Log parsing error:", e)
@@ -87,8 +84,9 @@ def parse_dup_log_file():
 def inspect_target_app_live():
     """
     Dynamic scanner for user's application on Port 5000.
-    Measures status & latency without generating health check spam.
+    Measures status & latency and appends 500 Internal Server Errors immediately to logs & critical events.
     """
+    global last_500_logged_time
     endpoints = ["/", "/health", "/api/telemetry", "/telemetry", "/api", "/metrics", "/data"]
     start_time = time.time()
     
@@ -128,6 +126,13 @@ def inspect_target_app_live():
         except urllib.error.HTTPError as e:
             latency_ms = round((time.time() - start_time) * 1000, 2)
             raw_body = e.read().decode('utf-8', errors='ignore')
+            
+            # Immediately log 500 / 5xx HTTP Error to stream and critical events if not logged in last 3s
+            now_t = time.time()
+            if now_t - last_500_logged_time > 3.0:
+                last_500_logged_time = now_t
+                log_http_request("GET", ep, e.code, latency_ms, f"HTTP {e.code} Internal Error on Port 5000")
+
             return {
                 "connected": True,
                 "url": url,
@@ -257,7 +262,6 @@ def proxy_gateway(path):
     req_body = request.get_data()
     req_headers = {k: v for k, v in request.headers if k.lower() != 'host'}
 
-    # If POST with JSON payload, run SchemaMedic Payload Repair
     if request.method in ["POST", "PUT", "PATCH"] and req_body:
         try:
             parsed_json = json.loads(req_body.decode('utf-8'))
@@ -327,7 +331,6 @@ def api_dashboard_full_state():
 
 @app.route("/api/proxy/repair-sample", methods=["POST"])
 def api_proxy_repair_sample():
-    """Injects a sample SchemaMedic payload repair record dynamically into schema_medic_data"""
     samples = [
         ("user_auth", "Port 5000 Auth API", {"usr_id": random.randint(1000, 9999), "action": "login"}),
         ("payment_transaction", "Port 5000 Payment Gateway", {"tx_id": f"TX-{random.randint(1000,9999)}", "amt": round(random.uniform(10, 500), 2), "curr": "USD"}),
