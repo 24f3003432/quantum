@@ -282,35 +282,67 @@ function updateAIRootCause(analysis, rollbackExecuted) {
     const confidenceEl = document.getElementById("aiConfidence");
     const summaryTextEl = document.getElementById("aiSummaryText");
     const causesContainer = document.getElementById("rankedCausesList");
+    const bannerCard = document.getElementById("aiBannerCard");
+    const statusBadge = document.getElementById("aiStatusBadge");
 
     if (headlineEl) headlineEl.innerText = analysis.headline;
     if (confidenceEl) confidenceEl.innerText = analysis.confidence + "%";
-    if (summaryTextEl && analysis.primary_cause) {
-        summaryTextEl.innerText = analysis.primary_cause.summary;
+    
+    if (summaryTextEl) {
+        summaryTextEl.innerText = analysis.summary || (analysis.primary_cause ? analysis.primary_cause.summary : "System operational.");
     }
 
-    if (causesContainer && analysis.ranked_causes) {
-        let cHtml = "";
-        analysis.ranked_causes.forEach(cause => {
-            cHtml += `
-                <div class="cause-card">
-                    <div class="cause-rank-badge">#${cause.rank}</div>
-                    <div class="cause-info">
-                        <div class="cause-title-bar">
-                            <h3>${escapeHtml(cause.title)}</h3>
-                            <div class="cause-prob">${cause.probability}% Likelihood</div>
-                        </div>
-                        <p style="margin: 0 0 0.5rem 0; color: #cbd5e1; font-size: 0.92rem;">
-                            ${escapeHtml(cause.details)}
-                        </p>
-                        <div>
-                            <span class="badge badge-info">${cause.status_badge}</span>
-                        </div>
-                    </div>
+    const isHealthy = (analysis.status === "NO_ISSUES" || !analysis.has_error || rollbackExecuted);
+
+    if (bannerCard) {
+        bannerCard.style.borderLeft = isHealthy ? "4px solid #10b981" : "4px solid #ef4444";
+    }
+
+    if (statusBadge) {
+        statusBadge.className = isHealthy ? "badge badge-schema" : "badge badge-critical";
+        if (analysis.status === "NO_ISSUES") {
+            statusBadge.innerText = "🟢 HEALTHY — NO ISSUES DETECTED";
+        } else if (rollbackExecuted) {
+            statusBadge.innerText = "SYSTEM RESTORED";
+        } else {
+            statusBadge.innerText = "ACTIVE ERROR INCIDENT REPORT";
+        }
+    }
+
+    if (causesContainer) {
+        if (analysis.status === "NO_ISSUES" || !analysis.has_error) {
+            causesContainer.innerHTML = `
+                <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid var(--green-border); padding: 1.5rem; border-radius: 8px; text-align: center; animation: fadeIn 0.4s ease-in-out;">
+                    <div style="font-size: 2rem; margin-bottom: 0.3rem;">🟢</div>
+                    <h3 style="color: #34d399; margin: 0 0 0.3rem 0; font-size: 1.2rem;">No issues till now</h3>
+                    <p style="margin: 0; color: var(--text-muted); font-size: 0.9rem;">
+                        All target application endpoints on Port 5000 and proxy response traffic are returning healthy responses (200 OK). Featherless AI actively monitors log stream and will auto-generate incident diagnostics if an HTTP error occurs.
+                    </p>
                 </div>
             `;
-        });
-        causesContainer.innerHTML = cHtml;
+        } else if (analysis.ranked_causes && analysis.ranked_causes.length > 0) {
+            let cHtml = "";
+            analysis.ranked_causes.forEach(cause => {
+                cHtml += `
+                    <div class="cause-card">
+                        <div class="cause-rank-badge">#${cause.rank}</div>
+                        <div class="cause-info">
+                            <div class="cause-title-bar">
+                                <h3>${escapeHtml(cause.title)}</h3>
+                                <div class="cause-prob">${cause.probability}% Likelihood</div>
+                            </div>
+                            <p style="margin: 0 0 0.5rem 0; color: #cbd5e1; font-size: 0.92rem;">
+                                ${escapeHtml(cause.details)}
+                            </p>
+                            <div>
+                                <span class="badge badge-info">${cause.status_badge}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            causesContainer.innerHTML = cHtml;
+        }
     }
 }
 

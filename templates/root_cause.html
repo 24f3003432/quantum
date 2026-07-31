@@ -33,10 +33,10 @@
         </div>
 
         <!-- Headline Summary Banner -->
-        <div class="card" style="border-left: 4px solid {% if analysis.status == 'NO_ISSUES' or rollback_executed %}#10b981{% else %}#ef4444{% endif %};">
+        <div class="card" id="aiBannerCard" style="border-left: 4px solid {% if analysis.status == 'NO_ISSUES' or rollback_executed %}#10b981{% else %}#ef4444{% endif %};">
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <div>
-                    <span class="badge {% if analysis.status == 'NO_ISSUES' or rollback_executed %}badge-schema{% else %}badge-critical{% endif %}" style="font-size: 0.85rem;">
+                    <span class="badge {% if analysis.status == 'NO_ISSUES' or rollback_executed %}badge-schema{% else %}badge-critical{% endif %}" id="aiStatusBadge" style="font-size: 0.85rem;">
                         {% if analysis.status == 'NO_ISSUES' %}🟢 HEALTHY — NO ISSUES DETECTED{% elif rollback_executed %}SYSTEM RESTORED{% else %}ACTIVE ERROR INCIDENT REPORT{% endif %}
                     </span>
                     <h2 style="margin: 0.5rem 0 0.2rem 0; font-size: 1.4rem; color: #ffffff;" id="aiHeadline">
