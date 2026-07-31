@@ -1,69 +1,57 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>API Inspector | Schema Medic</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-</head>
-<body>
-    <header class="navbar">
-        <div class="nav-brand">
-            <span class="brand-icon">⚡</span> EchoTrace & SchemaMedic
-        </div>
-        <nav class="nav-links">
-            <a href="{{ url_for('index') }}" class="nav-item">Dashboard</a>
-            <a href="{{ url_for('api_inspector') }}" class="nav-item active">API Inspector</a>
-            <a href="{{ url_for('timeline') }}" class="nav-item">Incident Timeline</a>
-        </nav>
-    </header>
+{% extends "base.html" %}
 
-    <div class="container">
-        <div class="page-header">
-            <h1>Schema Medic — API Payload Inspector</h1>
-            <p class="subtitle">Automated payload schema repair and missing field resolution diff viewer.</p>
-        </div>
+{% block title %}SchemaMedic Diff Inspector | Quantum Telemetry{% endblock %}
 
-        <div class="inspector-feed">
-            {% for item in schema_medic_data %}
-            <div class="inspector-card">
-                <div class="card-top-bar">
-                    <div class="item-meta">
-                        <span class="item-id-badge">{{ item.id }}</span>
-                        <span class="status-indicator">Automated Fix Applied</span>
-                    </div>
-                    <div class="confidence-container">
-                        <span class="confidence-label">AI Confidence Score</span>
-                        <span class="confidence-score">{{ item.confidence }}%</span>
-                    </div>
+{% block content %}
+<div class="container container-narrow">
+    <div class="page-intro text-center">
+        <h1 class="page-title">SchemaMedic API Inspector</h1>
+        <p class="page-subtitle">Automated structural payload repair and zero-latency schema diff analysis.</p>
+    </div>
+
+    <div class="inspector-list">
+        {% for item in schema_medic_data %}
+        <div class="diff-card">
+            <!-- Card Header -->
+            <div class="diff-card-header">
+                <div class="diff-meta">
+                    <span class="diff-id">{{ item.id }}</span>
+                    <span class="diff-status-dot"></span>
+                    <span class="diff-status-text">Schema Repaired</span>
                 </div>
+                <div class="diff-confidence">
+                    <span class="confidence-pill">{{ item.confidence }}% Confidence</span>
+                </div>
+            </div>
 
-                <div class="diff-grid">
-                    <div class="diff-panel original-panel">
-                        <div class="panel-header header-red">
-                            <span class="panel-icon">❌</span>
-                            <span class="panel-title">Original Payload (Missing Field)</span>
+            <!-- Single Centered Diff View -->
+            <div class="diff-card-body">
+                <div class="diff-grid-minimal">
+                    <!-- Left: Original -->
+                    <div class="diff-column original-col">
+                        <div class="diff-col-header">
+                            <span class="diff-tag tag-red">ORIGINAL</span>
+                            <span class="diff-subtext">Missing Schema Field</span>
                         </div>
-                        <div class="code-wrapper wrapper-red">
+                        <div class="code-container code-original">
                             <pre><code class="language-json">{{ item.original_payload | pretty_json }}</code></pre>
                         </div>
                     </div>
 
-                    <div class="diff-panel repaired-panel">
-                        <div class="panel-header header-green">
-                            <span class="panel-icon">✅</span>
-                            <span class="panel-title">Repaired Payload (Field Added)</span>
+                    <!-- Right: Repaired -->
+                    <div class="diff-column repaired-col">
+                        <div class="diff-col-header">
+                            <span class="diff-tag tag-green">REPAIRED</span>
+                            <span class="diff-subtext">Field Injected & Validated</span>
                         </div>
-                        <div class="code-wrapper wrapper-green">
+                        <div class="code-container code-repaired">
                             <pre><code class="language-json">{{ item.repaired_payload | pretty_json }}</code></pre>
                         </div>
                     </div>
                 </div>
             </div>
-            {% endfor %}
         </div>
+        {% endfor %}
     </div>
-
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
-</body>
-</html>
+</div>
+{% endblock %}

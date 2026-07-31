@@ -1,39 +1,45 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Echo Trace | Dashboard</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-</head>
-<body>
-    <header class="navbar">
-        <div class="nav-brand">
-            <span class="brand-icon">⚡</span> EchoTrace & SchemaMedic
-        </div>
-        <nav class="nav-links">
-            <a href="{{ url_for('index') }}" class="nav-item active">Dashboard</a>
-            <a href="{{ url_for('api_inspector') }}" class="nav-item">API Inspector</a>
-            <a href="{{ url_for('timeline') }}" class="nav-item">Incident Timeline</a>
-        </nav>
-    </header>
+{% extends "base.html" %}
 
-    <div class="container">
-        <div class="page-header">
-            <h1>System Diagnostics & Trace Timeline</h1>
-            <p class="subtitle">Real-time system telemetry, crash sequence analysis, and schema repair logs.</p>
-        </div>
+{% block title %}Overview | Quantum Telemetry{% endblock %}
 
-        <section class="card">
-            <div class="card-header-flex">
-                <h2>Echo Trace Events</h2>
-                <a href="{{ url_for('timeline') }}" class="btn-link">View Full Timeline &rarr;</a>
-            </div>
-            <table class="data-table">
+{% block content %}
+<div class="container">
+    <div class="page-intro">
+        <h1 class="page-title">System Overview</h1>
+        <p class="page-subtitle">Real-time trace telemetry and automated schema payload repair monitoring.</p>
+    </div>
+
+    <!-- Quick Stats Grid -->
+    <div class="metrics-grid">
+        <div class="metric-card">
+            <span class="metric-label">System Health</span>
+            <div class="metric-value text-green">99.98%</div>
+            <span class="metric-sub">Optimal throughput</span>
+        </div>
+        <div class="metric-card">
+            <span class="metric-label">Active Traces</span>
+            <div class="metric-value">{{ echo_trace_events|length }} Events</div>
+            <span class="metric-sub">Last crash sequence logged</span>
+        </div>
+        <div class="metric-card">
+            <span class="metric-label">Schema Repairs</span>
+            <div class="metric-value">{{ schema_medic_data|length }} Fixed</div>
+            <span class="metric-sub">Avg confidence 91.6%</span>
+        </div>
+    </div>
+
+    <!-- EchoTrace Summary -->
+    <div class="section-card">
+        <div class="card-header">
+            <h2 class="card-title">EchoTrace Events</h2>
+            <a href="{{ url_for('timeline') }}" class="text-link">View Timeline &rarr;</a>
+        </div>
+        <div class="table-wrapper">
+            <table class="minimal-table">
                 <thead>
                     <tr>
                         <th>Time</th>
-                        <th>Event Type</th>
+                        <th>Event</th>
                         <th>Severity</th>
                         <th>Description</th>
                     </tr>
@@ -41,22 +47,27 @@
                 <tbody>
                     {% for event in echo_trace_events %}
                     <tr>
-                        <td><code>{{ event.time }}</code></td>
-                        <td><strong>{{ event.event_type }}</strong></td>
-                        <td><span class="badge badge-{{ event.severity }}">{{ event.severity|upper }}</span></td>
-                        <td>{{ event.description }}</td>
+                        <td class="font-mono text-muted">{{ event.time }}</td>
+                        <td class="font-semibold">{{ event.event_type }}</td>
+                        <td>
+                            <span class="pill-badge pill-{{ event.severity }}">{{ event.severity }}</span>
+                        </td>
+                        <td class="text-muted">{{ event.description }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
-        </section>
+        </div>
+    </div>
 
-        <section class="card">
-            <div class="card-header-flex">
-                <h2>Schema Medic Summary</h2>
-                <a href="{{ url_for('api_inspector') }}" class="btn-link">Open Full API Inspector &rarr;</a>
-            </div>
-            <table class="data-table">
+    <!-- SchemaMedic Summary -->
+    <div class="section-card">
+        <div class="card-header">
+            <h2 class="card-title">SchemaMedic Payload Repairs</h2>
+            <a href="{{ url_for('api_inspector') }}" class="text-link">Open Diff Inspector &rarr;</a>
+        </div>
+        <div class="table-wrapper">
+            <table class="minimal-table">
                 <thead>
                     <tr>
                         <th>ID</th>
@@ -68,17 +79,15 @@
                 <tbody>
                     {% for item in schema_medic_data %}
                     <tr>
-                        <td><strong>{{ item.id }}</strong></td>
-                        <td><code>{{ item.original_payload }}</code></td>
-                        <td><code>{{ item.repaired_payload }}</code></td>
-                        <td><span class="confidence-badge">{{ item.confidence }}%</span></td>
+                        <td class="font-mono font-semibold">{{ item.id }}</td>
+                        <td class="font-mono text-dim">{{ item.original_payload }}</td>
+                        <td class="font-mono text-green">{{ item.repaired_payload }}</td>
+                        <td><span class="confidence-tag">{{ item.confidence }}%</span></td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
-        </section>
+        </div>
     </div>
-
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
-</body>
-</html>
+</div>
+{% endblock %}

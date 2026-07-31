@@ -1,93 +1,74 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Incident Timeline | EchoTrace</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-</head>
-<body>
-    <header class="navbar">
-        <div class="nav-brand">
-            <span class="brand-icon">⚡</span> EchoTrace & SchemaMedic
-        </div>
-        <nav class="nav-links">
-            <a href="{{ url_for('index') }}" class="nav-item">Dashboard</a>
-            <a href="{{ url_for('api_inspector') }}" class="nav-item">API Inspector</a>
-            <a href="{{ url_for('timeline') }}" class="nav-item active">Incident Timeline</a>
-        </nav>
-    </header>
+{% extends "base.html" %}
 
-    <div class="container">
-        <div class="page-header">
-            <h1>EchoTrace Incident Timeline & AI Analysis</h1>
-            <p class="subtitle">Sequential timeline of system crash telemetry paired with real-time root cause diagnostic.</p>
+{% block title %}EchoTrace Timeline | Quantum Telemetry{% endblock %}
+
+{% block content %}
+<div class="container container-medium">
+    <div class="page-intro text-center">
+        <h1 class="page-title">EchoTrace Incident Timeline</h1>
+        <p class="page-subtitle">Sequential event telemetry and real-time frosted-glass AI root cause analysis.</p>
+    </div>
+
+    <!-- Frosted Glass AI Root Cause Panel -->
+    <div class="frosted-glass-panel">
+        <div class="frosted-header">
+            <div class="frosted-title-wrapper">
+                <span class="pulse-icon">⚡</span>
+                <h2 class="frosted-title">AI Root Cause Analysis</h2>
+            </div>
+            <span class="frosted-badge">CRITICAL DIAGNOSIS</span>
         </div>
 
-        <div class="timeline-layout">
-            <!-- Left Column: Vertical Timeline -->
-            <div class="timeline-column">
-                <div class="timeline">
-                    {% for event in echo_trace_events %}
-                    <div class="timeline-item severity-{{ event.severity }}">
-                        <div class="timeline-node node-{{ event.severity }}"></div>
-                        <div class="timeline-card">
-                            <div class="timeline-card-header">
-                                <span class="timeline-time">{{ event.time }}</span>
-                                <span class="badge badge-{{ event.severity }}">{{ event.severity|upper }}</span>
-                            </div>
-                            <h3 class="event-title">{{ event.event_type }}</h3>
-                            <p class="event-desc">{{ event.description }}</p>
-                        </div>
-                    </div>
-                    {% endfor %}
+        <div class="frosted-content">
+            <p class="frosted-main-text">
+                <strong class="highlight-white">PR #42 caused a blocking database lock</strong> on the primary transaction node, inducing memory pool exhaustion and triggering cascading service SIGSEGV failure.
+            </p>
+
+            <div class="frosted-meta-grid">
+                <div class="meta-box">
+                    <span class="meta-key">Triggered By</span>
+                    <span class="meta-val font-mono">PR #42 (commit 8f2a1)</span>
+                </div>
+                <div class="meta-box">
+                    <span class="meta-key">Primary Failure</span>
+                    <span class="meta-val font-mono text-red">SIGSEGV (14:00:14)</span>
+                </div>
+                <div class="meta-box">
+                    <span class="meta-key">System Impact</span>
+                    <span class="meta-val text-amber">High Latency / Lock Timeout</span>
                 </div>
             </div>
 
-            <!-- Right Column: Sticky AI Root Cause Analysis Panel -->
-            <div class="sidebar-column">
-                <div class="ai-panel">
-                    <div class="ai-panel-header">
-                        <span class="ai-icon">🤖</span>
-                        <h2>AI Root Cause Analysis</h2>
-                    </div>
-                    
-                    <div class="ai-panel-body">
-                        <div class="insight-box danger-box">
-                            <span class="insight-label">Primary Root Cause Identified</span>
-                            <p class="insight-text">
-                                <strong>PR #42 caused a blocking database lock</strong> on the primary transaction node, resulting in cascading pool exhaustion and system failure.
-                            </p>
-                        </div>
-
-                        <div class="telemetry-summary">
-                            <div class="summary-item">
-                                <span class="label">First Anomaly:</span>
-                                <span class="val">14:00:05 (Buffer Warning)</span>
-                            </div>
-                            <div class="summary-item">
-                                <span class="label">Fatal Exception:</span>
-                                <span class="val">14:00:12 (Null Pointer Access)</span>
-                            </div>
-                            <div class="summary-item">
-                                <span class="label">Affected Services:</span>
-                                <span class="val">AuthService, DBCluster-01</span>
-                            </div>
-                        </div>
-
-                        <div class="remediation-section">
-                            <h3>Recommended Action</h3>
-                            <p>Automated rollback of Pull Request #42 will release table lock locks and restore normal thread allocation.</p>
-                            <button class="btn-rollback" onclick="alert('Rollback initiated for PR #42!')">
-                                ⚡ Execute Rollback
-                            </button>
-                        </div>
-                    </div>
-                </div>
+            <div class="frosted-actions">
+                <button class="btn-linear-danger" onclick="alert('Rollback executed for PR #42.')">
+                    <span>Execute Rollback (PR #42)</span>
+                </button>
             </div>
         </div>
     </div>
 
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
-</body>
-</html>
+    <!-- Single Delicate Vertical Centered Timeline -->
+    <div class="centered-timeline-wrapper">
+        <div class="delicate-vertical-line"></div>
+
+        <div class="timeline-stream">
+            {% for event in echo_trace_events %}
+            <div class="minimal-timeline-item item-{{ loop.index is odd and 'left' or 'right' }}">
+                <div class="item-content-card">
+                    <div class="item-header font-mono">
+                        <span class="item-timestamp">{{ event.time }}</span>
+                        <span class="severity-dot dot-{{ event.severity }}"></span>
+                        <span class="severity-label text-{{ event.severity }}">{{ event.severity|upper }}</span>
+                    </div>
+                    <h3 class="item-title">{{ event.event_type }}</h3>
+                    <p class="item-description">{{ event.description }}</p>
+                </div>
+
+                <!-- Minimalist Dot on the Vertical Line -->
+                <div class="center-dot dot-{{ event.severity }}"></div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
