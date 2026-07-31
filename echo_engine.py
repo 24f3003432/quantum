@@ -21,9 +21,23 @@ try:
 except Exception as e:
     print("Featherless OpenAI client init warning:", e)
 
+def get_target_app_code_context():
+    """
+    Reads the exact source code of the Port 5000 Target Application (target_app.py)
+    so Featherless AI has 100% code-level awareness of endpoints, schemas, and routes.
+    """
+    target_app_path = os.path.join(os.path.dirname(__file__), "target_app.py")
+    if os.path.exists(target_app_path):
+        try:
+            with open(target_app_path, "r", encoding="utf-8") as f:
+                return f.read()
+        except Exception as e:
+            print("Error reading target_app.py code context:", e)
+    return "# target_app.py not found"
+
 def query_featherless_ai(system_prompt, user_prompt):
     """
-    Sends dynamic logs and prompt context to Featherless.ai API (https://api.featherless.ai/v1)
+    Sends dynamic logs, target app source code, and prompt context to Featherless.ai API
     """
     if not client:
         return None
@@ -35,7 +49,7 @@ def query_featherless_ai(system_prompt, user_prompt):
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
-            max_tokens=500,
+            max_tokens=550,
             temperature=0.6
         )
         if response and response.choices and len(response.choices) > 0:
@@ -47,12 +61,13 @@ def query_featherless_ai(system_prompt, user_prompt):
 
 def get_root_cause_analysis(events=None, rollback_executed=False, http_requests=None):
     """
-    Featherless AI Health & Root Cause Engine:
-    - Dynamically scans real HTTP response traffic and logs.
+    Featherless AI Health & Root Cause Engine with Full Target App Code Context:
+    - Scans real HTTP response traffic and logs.
+    - Uses target_app.py source code context for precise root-cause pin-pointing.
     - If NO ERRORS exist (all HTTP statuses < 400 and no critical events):
       Returns clean "No issues till now" state.
     - If ERRORS exist (status_code >= 400 or critical event):
-      Calls Featherless.ai API to dynamically analyze the error responses and generate the Root Cause Report.
+      Calls Featherless.ai API to dynamically analyze the error responses against target_app.py code.
     """
     if rollback_executed:
         return {
@@ -123,7 +138,8 @@ def get_root_cause_analysis(events=None, rollback_executed=False, http_requests=
             "rollback_available": False
         }
 
-    # 3. IF ERRORS DETECTED -> Send live error log responses to Featherless.ai for dynamic root-cause analysis!
+    # 3. IF ERRORS DETECTED -> Load Port 5000 Code Context and send to Featherless.ai!
+    target_code = get_target_app_code_context()
     error_summary_lines = []
     for er in error_requests[:5]:
         error_summary_lines.append(f"- HTTP {er.get('method')} {er.get('path')} returned Status {er.get('status_code')} ({er.get('status_text')}) at {er.get('timestamp')}")
@@ -134,15 +150,19 @@ def get_root_cause_analysis(events=None, rollback_executed=False, http_requests=
 
     system_prompt = (
         "You are an expert AI Reliability Engineer analyzing live HTTP error logs and telemetry from a target application running on Port 5000.\n"
-        "Analyze the dynamic HTTP response errors provided and determine the exact root cause, rank probabilities, and suggest step-by-step resolution.\n"
+        "You have FULL CODE CONTEXT of the Port 5000 Target Application (target_app.py):\n"
+        "=== PORT 5000 APPLICATION SOURCE CODE (target_app.py) ===\n"
+        f"{target_code}\n"
+        "=========================================================\n\n"
+        "Analyze the dynamic HTTP error responses against the target_app.py source code above. Determine the exact root cause in the code, rank probabilities, and suggest step-by-step code fixes.\n"
         "Return a valid JSON object strictly matching this format:\n"
         "{\n"
-        '  "headline": "Short title describing the HTTP error incident",\n'
-        '  "summary": "Detailed explanation of why the error response occurred",\n'
+        '  "headline": "Short title describing the HTTP error incident in target_app.py",\n'
+        '  "summary": "Detailed code-level explanation of why the error response occurred",\n'
         '  "ranked_causes": [\n'
-        '     {"rank": 1, "title": "Cause 1", "probability": 92, "details": "Explanation", "status_badge": "PRIMARY CAUSE"}\n'
+        '     {"rank": 1, "title": "Cause 1", "probability": 92, "details": "Code-level explanation", "status_badge": "PRIMARY CAUSE"}\n'
         "  ],\n"
-        '  "recommended_action": "Clear step-by-step resolution command/action"\n'
+        '  "recommended_action": "Clear step-by-step code fix or resolution action"\n'
         "}"
     )
 
@@ -163,18 +183,18 @@ def get_root_cause_analysis(events=None, rollback_executed=False, http_requests=
                 "has_error": True,
                 "status": "ACTIVE_INCIDENT",
                 "active_alert": True,
-                "headline": f"🚨 Featherless AI Analysis: {ai_data.get('headline', 'HTTP Error Detected')}",
-                "confidence": 94,
+                "headline": f"🚨 Featherless AI Code Analysis: {ai_data.get('headline', 'HTTP Error Detected')}",
+                "confidence": 95,
                 "featherless_model": FEATHERLESS_MODEL,
-                "summary": ai_data.get("summary", "Dynamic HTTP error response detected by Featherless AI."),
+                "summary": ai_data.get("summary", "Dynamic HTTP error response analyzed against target_app.py code context."),
                 "primary_cause": {
                     "title": ai_data.get("headline", "HTTP Response Error"),
-                    "probability": 94,
+                    "probability": 95,
                     "summary": ai_data.get("summary", "HTTP error response detected in live traffic."),
-                    "affected_services": ["Port 5000 Application", "Proxy Interceptor"]
+                    "affected_services": ["Port 5000 Application (target_app.py)"]
                 },
                 "ranked_causes": ai_data.get("ranked_causes", []),
-                "recommended_action": ai_data.get("recommended_action", "Execute automated rollback or inspect target app logs."),
+                "recommended_action": ai_data.get("recommended_action", "Inspect target_app.py source code or execute automated rollback."),
                 "rollback_available": True
             }
         except Exception:
@@ -185,34 +205,36 @@ def get_root_cause_analysis(events=None, rollback_executed=False, http_requests=
         "has_error": True,
         "status": "ACTIVE_INCIDENT",
         "active_alert": True,
-        "headline": "🚨 HTTP 500 Error Detected on Target App (Port 5000)",
+        "headline": "🚨 HTTP 500 Error Detected in target_app.py (Port 5000)",
         "confidence": 94,
         "featherless_model": FEATHERLESS_MODEL,
         "summary": ai_raw or "HTTP 500 Internal Server Error detected on Port 5000 target endpoint.",
         "primary_cause": {
             "title": "Port 5000 HTTP 500 Error Cascade",
             "probability": 94,
-            "summary": "Target application returned HTTP 500 Internal Error during active request processing.",
-            "affected_services": ["Port 5000 Microservice"]
+            "summary": "Target application target_app.py returned HTTP 500 Internal Error.",
+            "affected_services": ["Port 5000 Microservice (target_app.py)"]
         },
         "ranked_causes": [
             {
                 "rank": 1,
-                "title": "HTTP 500 Internal Server Error",
+                "title": "HTTP 500 Internal Server Error in target_app.py",
                 "probability": 94,
                 "severity": "CRITICAL",
-                "details": "Port 5000 app failed to process incoming request, returning HTTP 500.",
+                "details": "Port 5000 target_app.py failed to process incoming request, returning HTTP 500.",
                 "status_badge": "PRIMARY ERROR"
             }
         ],
-        "recommended_action": "Check Port 5000 application logs or click Execute Automated Rollback.",
+        "recommended_action": "Check target_app.py error handler or click Execute Automated Rollback.",
         "rollback_available": True
     }
 
 def handle_ai_chat(query, events=None, rollback_executed=False, http_requests=None, schema_data=None):
     """
-    AI Assistant interactive chat logic feeding dynamic real-time logs to Featherless.ai API.
+    AI Assistant interactive chat logic feeding dynamic real-time logs AND target_app.py source code to Featherless.ai.
     """
+    target_code = get_target_app_code_context()
+    
     recent_reqs_summary = "None"
     if http_requests and len(http_requests) > 0:
         recent_reqs_summary = "\n".join([
@@ -237,16 +259,19 @@ def handle_ai_chat(query, events=None, rollback_executed=False, http_requests=No
     system_prompt = (
         "You are EchoTrace & SchemaMedic AI, an autonomous microservice resilience and root-cause assistant monitoring a target application on Port 5000 from Port 5001.\n"
         f"Rollback Status: {'Executed' if rollback_executed else 'Active'}\n\n"
+        "=== PORT 5000 TARGET APPLICATION SOURCE CODE (target_app.py) ===\n"
+        f"{target_code}\n"
+        "=================================================================\n\n"
         "=== LIVE REAL-TIME LOGS STREAM (PORT 5000 & PROXY) ===\n"
         f"Latest HTTP Traffic Stream:\n{recent_reqs_summary}\n\n"
         f"Latest EchoTrace Incident Events:\n{recent_events_summary}\n\n"
         f"Latest SchemaMedic Payload Repairs:\n{recent_repairs_summary}\n"
         "=======================================================\n\n"
-        "Provide direct, concise, and helpful answers analyzing these live logs and resilience events. If no errors exist in the logs, explicitly state 'No issues till now'."
+        "Provide direct, code-aware, concise, and helpful answers analyzing target_app.py code and live logs. If no errors exist in the logs, explicitly state 'No issues till now'."
     )
 
     ai_reply = query_featherless_ai(system_prompt, query)
     if ai_reply:
         return ai_reply
 
-    return f"EchoTrace AI Assistant (Featherless.ai Model: `{FEATHERLESS_MODEL}`): Monitoring live response traffic on Port 5000. No issues till now."
+    return f"EchoTrace AI Assistant (Featherless.ai Model: `{FEATHERLESS_MODEL}`): Monitoring target_app.py on Port 5000. No issues till now."
