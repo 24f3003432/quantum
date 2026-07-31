@@ -36,7 +36,6 @@
             <a href="{{ url_for('timeline', filter='all') }}" class="filter-btn {% if current_filter == 'all' %}active{% endif %}">All Events</a>
             <a href="{{ url_for('timeline', filter='critical') }}" class="filter-btn {% if current_filter == 'critical' %}active{% endif %}">🚨 Critical Only</a>
             <a href="{{ url_for('timeline', filter='schema') }}" class="filter-btn {% if current_filter == 'schema' %}active{% endif %}">🩺 Schema Medic</a>
-            <a href="{{ url_for('timeline', filter='git') }}" class="filter-btn {% if current_filter == 'git' %}active{% endif %}">🐙 Git & Commits</a>
         </div>
 
         <div class="timeline-layout">
