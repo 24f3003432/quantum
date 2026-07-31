@@ -179,16 +179,34 @@ function updateExternalAPIConversations(conversations) {
 
 async function triggerExternalAPICalls() {
     try {
+        const btn = document.querySelector("button[onclick='triggerExternalAPICalls()']");
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = "⏳ Fetching Live APIs...";
+        }
         const resp = await fetch("/api/trigger-external-apis", { method: "POST" });
         const res = await resp.json();
         if (res.success) {
             showToast("⚡ External API Calls Executed & Conversations Captured!");
+            if (res.conversations && res.conversations.length > 0) {
+                updateExternalAPIConversations(res.conversations);
+            }
             fetchFullDynamicState();
         } else {
             showToast("⚠️ Could not reach Port 5000: " + (res.error || "Offline"));
         }
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = "⚡ Fetch Live External API Data";
+        }
     } catch (e) {
         console.warn("External API trigger error:", e);
+        showToast("⚠️ Connection Error: " + e.message);
+        const btn = document.querySelector("button[onclick='triggerExternalAPICalls()']");
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = "⚡ Fetch Live External API Data";
+        }
     }
 }
 

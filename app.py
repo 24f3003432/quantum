@@ -195,7 +195,8 @@ def index():
         rollback_executed=rollback_executed,
         target_info=target_info,
         metrics=metrics,
-        http_requests=http_request_stream
+        http_requests=http_request_stream,
+        external_api_conversations=external_api_conversations
     )
 
 @app.route("/api-inspector")
