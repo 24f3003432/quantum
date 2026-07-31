@@ -29,7 +29,7 @@ git_commits = [
     {
         "hash": "a3f891b",
         "branch": "main",
-        "author": "alex.dev@quantum.io",
+        "author": "alex.dev@echotrace.io",
         "time": "13:58:00",
         "message": "PR #42: Add index on users.created_at & alter columns (alter_users_table.sql)",
         "files_changed": ["migrations/2026_07_31_alter_users.sql", "models/user.py"],
@@ -38,7 +38,7 @@ git_commits = [
     {
         "hash": "c9e104f",
         "branch": "main",
-        "author": "sarah.dev@quantum.io",
+        "author": "sarah.dev@echotrace.io",
         "time": "11:20:15",
         "message": "PR #41: Refactor auth token validation pipeline & session timeout handlers",
         "files_changed": ["auth/jwt.py", "auth/session.py"],
