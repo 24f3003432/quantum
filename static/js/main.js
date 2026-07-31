@@ -26,8 +26,10 @@ async function fetchFullDynamicState() {
         // 5. EchoTrace Events Timeline
         updateEchoTraceEvents(data.echo_trace_events);
 
-        // 6. AI Root Cause Analysis Cards
-        updateAIRootCause(data.analysis, data.rollback_executed);
+        // 6. AI Root Cause Analysis Cards (Updated ONLY on page load or outside /root-cause to prevent flicker)
+        if (window.location.pathname !== "/root-cause") {
+            updateAIRootCause(data.analysis, data.rollback_executed);
+        }
 
         // 7. Git Commit Risk Table
         updateGitCommitsTable(data.git_commits);

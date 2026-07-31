@@ -49,8 +49,8 @@ def query_featherless_ai(system_prompt, user_prompt):
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
-            max_tokens=550,
-            temperature=0.6
+            max_tokens=650,
+            temperature=0.5
         )
         if response and response.choices and len(response.choices) > 0:
             return response.choices[0].message.content.strip()
@@ -59,16 +59,75 @@ def query_featherless_ai(system_prompt, user_prompt):
 
     return None
 
+def analyze_code_vulnerabilities(target_code):
+    """
+    Exposes code vulnerabilities in target_app.py and provides brief, concise code fixes.
+    """
+    default_vulnerabilities = [
+        {
+            "title": "Strict Schema Validation Guard Missing",
+            "endpoint": "/api/users/login",
+            "risk": "HIGH",
+            "vulnerability": "Endpoint assumes `user_id` exists in JSON payload. Variant or legacy key names (e.g. `usr_id`) trigger 400/500 errors without proxy.",
+            "possible_fix": "Add SchemaMedic proxy wrapper or implement key aliasing dict: `data['user_id'] = data.get('user_id') or data.get('usr_id')`."
+        },
+        {
+            "title": "Unhandled Non-JSON Payload Parsing",
+            "endpoint": "Global Request Handler",
+            "risk": "MEDIUM",
+            "vulnerability": "`request.get_json(force=True)` can raise unhandled `BadRequest` exception if invalid non-JSON string is posted.",
+            "possible_fix": "Wrap `get_json()` inside try-except block returning 400 JSON error: `try: data = request.get_json() except: return jsonify({'error': 'Invalid JSON'}), 400`."
+        },
+        {
+            "title": "Unbounded Database Lock Risk",
+            "endpoint": "Database Migration (PR #42)",
+            "risk": "HIGH",
+            "vulnerability": "Exclusive table locks acquired during index migrations lock auth worker threads under heavy concurrent load.",
+            "possible_fix": "Execute database migrations concurrently (`CREATE INDEX CONCURRENTLY`) with lock timeout settings."
+        }
+    ]
+
+    if not client or not target_code:
+        return default_vulnerabilities
+
+    system_prompt = (
+        "You are a Cybersecurity & Reliability Engineer. Analyze this Python Flask app source code (target_app.py):\n"
+        "=== SOURCE CODE ===\n"
+        f"{target_code}\n"
+        "===================\n\n"
+        "Identify 3 code vulnerabilities that might cause runtime 500 errors or app crashes, and provide brief 1-sentence fixes.\n"
+        "Return JSON array matching format:\n"
+        "[\n"
+        '  {"title": "Title", "endpoint": "/path", "risk": "HIGH|MEDIUM", "vulnerability": "Brief vuln desc", "possible_fix": "Brief fix desc"}\n'
+        "]"
+    )
+
+    try:
+        raw_res = query_featherless_ai(system_prompt, "Expose code vulnerabilities and brief fixes.")
+        if raw_res:
+            cleaned = raw_res.strip()
+            if cleaned.startswith("```json"):
+                cleaned = cleaned[7:]
+            if cleaned.endswith("```"):
+                cleaned = cleaned[:-3]
+            parsed = json.loads(cleaned.strip())
+            if isinstance(parsed, list) and len(parsed) > 0:
+                return parsed
+    except Exception:
+        pass
+
+    return default_vulnerabilities
+
 def get_root_cause_analysis(events=None, rollback_executed=False, http_requests=None):
     """
-    Featherless AI Health & Root Cause Engine with Full Target App Code Context:
-    - Scans real HTTP response traffic and logs.
-    - Uses target_app.py source code context for precise root-cause pin-pointing.
-    - If NO ERRORS exist (all HTTP statuses < 400 and no critical events):
-      Returns clean "No issues till now" state.
-    - If ERRORS exist (status_code >= 400 or critical event):
-      Calls Featherless.ai API to dynamically analyze the error responses against target_app.py code.
+    Featherless AI Health & Root Cause Engine:
+    - Analyzes real HTTP traffic logs & target_app.py code context.
+    - Exposes code vulnerabilities and brief fixes.
+    - Evaluates error state strictly on recent traffic.
     """
+    target_code = get_target_app_code_context()
+    vulnerabilities = analyze_code_vulnerabilities(target_code)
+
     if rollback_executed:
         return {
             "has_error": False,
@@ -78,6 +137,7 @@ def get_root_cause_analysis(events=None, rollback_executed=False, http_requests=
             "confidence": 99,
             "featherless_model": FEATHERLESS_MODEL,
             "summary": "Database lock released after automated rollback of PR #42. Target application operating normally.",
+            "vulnerabilities": vulnerabilities,
             "primary_cause": {
                 "title": "PR #42 Database Schema Lock (Resolved)",
                 "probability": 94,
@@ -104,7 +164,6 @@ def get_root_cause_analysis(events=None, rollback_executed=False, http_requests=
     recent_traffic = (http_requests[:5] if http_requests else [])
     error_requests = [r for r in recent_traffic if r.get("status_code", 200) >= 400]
 
-    # Scan recent events for active critical errors
     recent_events = (events[:5] if events else [])
     critical_events = [e for e in recent_events if e.get("severity") == "critical" and "HTTP 500" in e.get("description", "")]
 
@@ -118,6 +177,7 @@ def get_root_cause_analysis(events=None, rollback_executed=False, http_requests=
             "confidence": 100,
             "featherless_model": FEATHERLESS_MODEL,
             "summary": "No issues till now. All target application endpoints on Port 5000 and proxy traffic are returning healthy responses (200 OK).",
+            "vulnerabilities": vulnerabilities,
             "primary_cause": {
                 "title": "No Active Incidents Detected",
                 "probability": 0,
@@ -138,8 +198,7 @@ def get_root_cause_analysis(events=None, rollback_executed=False, http_requests=
             "rollback_available": False
         }
 
-    # 3. IF ERRORS DETECTED -> Load Port 5000 Code Context and send to Featherless.ai!
-    target_code = get_target_app_code_context()
+    # 3. IF ERRORS DETECTED -> Send error logs to Featherless.ai
     error_summary_lines = []
     for er in error_requests[:5]:
         error_summary_lines.append(f"- HTTP {er.get('method')} {er.get('path')} returned Status {er.get('status_code')} ({er.get('status_text')}) at {er.get('timestamp')}")
@@ -169,7 +228,6 @@ def get_root_cause_analysis(events=None, rollback_executed=False, http_requests=
     user_prompt = f"Live Error Log Responses:\n{error_context}"
     ai_raw = query_featherless_ai(system_prompt, user_prompt)
 
-    # Parse Featherless AI response
     if ai_raw:
         try:
             cleaned = ai_raw.strip()
@@ -187,6 +245,7 @@ def get_root_cause_analysis(events=None, rollback_executed=False, http_requests=
                 "confidence": 95,
                 "featherless_model": FEATHERLESS_MODEL,
                 "summary": ai_data.get("summary", "Dynamic HTTP error response analyzed against target_app.py code context."),
+                "vulnerabilities": vulnerabilities,
                 "primary_cause": {
                     "title": ai_data.get("headline", "HTTP Response Error"),
                     "probability": 95,
@@ -200,7 +259,6 @@ def get_root_cause_analysis(events=None, rollback_executed=False, http_requests=
         except Exception:
             pass
 
-    # Fallback error structure if Featherless returned non-JSON text
     return {
         "has_error": True,
         "status": "ACTIVE_INCIDENT",
@@ -209,6 +267,7 @@ def get_root_cause_analysis(events=None, rollback_executed=False, http_requests=
         "confidence": 94,
         "featherless_model": FEATHERLESS_MODEL,
         "summary": ai_raw or "HTTP 500 Internal Server Error detected on Port 5000 target endpoint.",
+        "vulnerabilities": vulnerabilities,
         "primary_cause": {
             "title": "Port 5000 HTTP 500 Error Cascade",
             "probability": 94,
